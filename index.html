@@ -161,13 +161,14 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       <div class="card">
         <h3>Wicket</h3>
         <ol class="steps">
-          <li>Tap Place wicket.</li>
-          <li>Press at the bottom of the middle stump and drag up to the top of the stumps.</li>
-          <li>Drag the virtual wicket to fine-tune it.</li>
-          <li>Bowl.</li>
+          <li>Tap Set up.</li>
+          <li>On the picture, tap the bottom of the middle stump, then the top of the stumps.</li>
+          <li>Hold a ball still in view and tap it. The tracker learns its colour and shows how far away it is.</li>
+          <li>Bowl. Drag the virtual wicket if it needs fine-tuning.</li>
         </ol>
         <div class="row" style="margin-top:12px">
-          <button id="wkBtn">Place wicket</button>
+          <button id="wkBtn">Set up</button>
+          <button class="ghost" id="ballBtn">Tap ball</button>
           <button class="ghost" id="zoneBtn">Detection zone</button>
           <button class="ghost" id="resetBtn">Reset</button>
         </div>
@@ -222,6 +223,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   let stream = null, fileURL = null, running = false, sourceType = null, rvfc = null;
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
   let mode = null, dragStart = null, dragNow = null, moveOff = null;
+  let tapBase = null, setupFlow = false, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
   let zone = null, wk = null, kFocal = null;
   const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false };
 
@@ -247,19 +249,22 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   }
 
   // ---------- UI bindings ----------
-  ['white', 'sat', 'motion', 'minA', 'maxA'].forEach(k => {
+  const SLIDERS = ['white', 'sat', 'motion', 'minA', 'maxA'];
+  function syncSliders() { SLIDERS.forEach(k => { $('s_' + k).value = S[k]; $('o_' + k).textContent = S[k]; }); }
+  SLIDERS.forEach(k => {
     const el = $('s_' + k), out = $('o_' + k);
-    el.value = S[k]; out.textContent = S[k];
     el.addEventListener('input', () => { S[k] = +el.value; out.textContent = el.value; save(); });
   });
+  syncSliders();
   $('showMask').addEventListener('change', e => { S.showMask = e.target.checked; });
   const pick = () => $('file').click();
   $('fileBtn').onclick = pick; $('fileBtn2').onclick = pick;
   $('camBtn').onclick = startCamera; $('camBtn2').onclick = startCamera;
   $('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
-  $('wkBtn').onclick = () => setMode(mode === 'wicket' ? null : 'wicket');
+  $('wkBtn').onclick = () => { setupFlow = mode !== 'wicket'; setMode(mode === 'wicket' ? null : 'wicket'); };
+  $('ballBtn').onclick = () => { setupFlow = false; setMode(mode === 'ball' ? null : 'ball'); };
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
-  $('resetBtn').onclick = () => { zone = null; wk = null; kFocal = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and zone cleared'); };
+  $('resetBtn').onclick = () => { zone = null; wk = null; kFocal = null; ballMark = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and zone cleared'); };
   $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
   $('measured').addEventListener('change', () => {
     const v = parseFloat($('measured').value);
@@ -281,14 +286,18 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 
   let hintTimer = null;
   function hint(t) { const h = $('hint'); if (!t) { h.hidden = true; return; } h.textContent = t; h.hidden = false; }
-  function flash(t) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, 1800); }
+  function flash(t, ms) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, ms || 1800); }
   function setError(t) { $('err').textContent = t || ''; }
   function setMode(m) {
-    mode = m;
+    mode = m; tapBase = null;
+    if (m !== 'wicket' && m !== 'ball') setupFlow = false;
     $('wkBtn').classList.toggle('on', m === 'wicket');
+    $('ballBtn').classList.toggle('on', m === 'ball');
     $('zoneBtn').classList.toggle('on', m === 'zone');
     $('stage').classList.toggle('picking', !!m);
-    if (m === 'wicket') hint('Press at the base of the middle stump, drag up to the top');
+    if (m && !running) setError('Start the camera or open a video first.');
+    if (m === 'wicket') hint('Tap the bottom of the middle stump');
+    else if (m === 'ball') hint(setupFlow ? 'Hold a ball still and tap it (tap Tap ball to skip)' : 'Hold a ball still and tap it');
     else if (m === 'zone') hint('Drag a box over the area the ball travels through');
     else hint(null);
   }
@@ -489,6 +498,68 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     return { x: sx / area, y: sy / area, d: (dEq + Math.min(bw, bh)) / 2 };
   }
 
+  // Tap on a still ball: learn its colour, measure it and show its distance
+  function calibrateBall(p) {
+    if (!running) { setError('Start the camera or open a video first.'); return null; }
+    const d = pctx.getImageData(0, 0, PW, PH).data;
+    const tx = Math.round(p.x * (PW - 1)), ty = Math.round(p.y * (PH - 1));
+    const R = Math.max(6, Math.round(Math.max(PW, PH) * 0.03));
+    // brightest, most neutral pixel near the tap (the ball's centre)
+    let peak = -1, pv = -1;
+    for (let y = Math.max(0, ty - R); y <= Math.min(PH - 1, ty + R); y++) {
+      for (let x = Math.max(0, tx - R); x <= Math.min(PW - 1, tx + R); x++) {
+        const q = (y * PW + x) * 4;
+        const mn = Math.min(d[q], d[q + 1], d[q + 2]);
+        if (mn > pv) { pv = mn; peak = y * PW + x; }
+      }
+    }
+    const q0 = peak * 4;
+    const pMx = Math.max(d[q0], d[q0 + 1], d[q0 + 2]), pSp = pMx - pv;
+    if (pMx < 110 || pSp > 70) { flash('That doesn\'t look like a white ball. Tap right on it.'); return null; }
+    // grow over pixels that look like the same ball
+    const lumMin = pMx * 0.72, spMax = pSp + 35, CAP = 5000;
+    stamp++;
+    let sp = 0; stack[sp++] = peak; vis[peak] = stamp;
+    const mxs = [], sps = [];
+    let sx = 0, sy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
+    while (sp) {
+      const j = stack[--sp];
+      if (mxs.length > CAP) { flash('That patch is too big for a ball. Tap the ball itself.'); return null; }
+      const qj = j * 4, r = d[qj], g = d[qj + 1], b = d[qj + 2];
+      const mx = Math.max(r, g, b);
+      mxs.push(mx); sps.push(mx - Math.min(r, g, b));
+      const x = j % PW, y = (j / PW) | 0;
+      sx += x; sy += y;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy; if (yy < 0 || yy >= PH) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx; if (xx < 0 || xx >= PW) continue;
+          const k = yy * PW + xx;
+          if (vis[k] === stamp) continue;
+          const qk = k * 4, kr = d[qk], kg = d[qk + 1], kb = d[qk + 2];
+          const kmx = Math.max(kr, kg, kb);
+          if (kmx >= lumMin && kmx - Math.min(kr, kg, kb) <= spMax) { vis[k] = stamp; stack[sp++] = k; }
+        }
+      }
+    }
+    const area = mxs.length;
+    const pct = (a, f) => { const s = a.slice().sort((u, v) => u - v); return s[Math.min(s.length - 1, Math.floor(f * s.length))]; };
+    S.white = Math.max(120, Math.min(250, pct(mxs, 0.1) - 15));
+    S.sat = Math.max(10, Math.min(90, pct(sps, 0.9) + 15));
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    const diam = (2 * Math.sqrt(area / Math.PI) + Math.min(bw, bh)) / 2;
+    const dist = focalProc() * BALL / diam;
+    // largest size a ball can be: about twice its diameter at the stumps (blur, smear), or this ball's size
+    const Dw = wicketDist();
+    const dAtStumps = Dw ? focalProc() * BALL / Dw : diam;
+    S.maxA = Math.max(40, Math.min(3000, Math.round(Math.max(Math.PI / 4 * Math.pow(dAtStumps * 2, 2), area * 2) / 20) * 20));
+    syncSliders(); save();
+    ballMark = { x: sx / area / PW, y: sy / area / PH, d: diam / PW, dist };
+    previewUntil = performance.now() + 5000;
+    return 'Ball colour learned. Ball is ' + dist.toFixed(1) + ' m away';
+  }
+
   // ---------- tracking ----------
   function updateTracks(cands, t) {
     const used = new Array(cands.length).fill(false);
@@ -665,11 +736,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const lw = Math.max(2, Math.min(W, H) / 260);
     const sx = W / PW, sy = H / PH;
 
-    if (S.showMask && mask && maskImg) {
+    const nowMs = performance.now();
+    if ((S.showMask || nowMs < previewUntil) && mask && maskImg) {
+      // pink = moving white (ball candidates), blue = everything that counts as white
       const md = maskImg.data;
       for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
-        md[p] = 255; md[p + 1] = mask[i] ? 63 : 255; md[p + 2] = mask[i] ? 142 : 255;
-        md[p + 3] = mask[i] ? 255 : (white[i] ? 70 : 0);
+        if (mask[i]) { md[p] = 255; md[p + 1] = 63; md[p + 2] = 142; md[p + 3] = 255; }
+        else { md[p] = 53; md[p + 1] = 167; md[p + 2] = 255; md[p + 3] = white[i] ? 150 : 0; }
       }
       mctx.putImageData(maskImg, 0, 0);
       dctx.imageSmoothingEnabled = false; dctx.drawImage(maskC, 0, 0, W, H); dctx.imageSmoothingEnabled = true;
@@ -694,7 +767,29 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       const h = dragStart.y - dragNow.y;
       w = h > 0.01 ? { x: dragStart.x, y: dragStart.y, h } : null;
     }
-    if (w) drawWicket(w, W, H, lw);
+    if (w) drawWicket(w, W, H, lw, nowMs < wkFlashUntil || mode === 'wicket');
+
+    // first tap of the wicket (base of the middle stump)
+    if (mode === 'wicket' && tapBase) {
+      const bx = tapBase.x * W, by = tapBase.y * H;
+      dctx.save();
+      dctx.strokeStyle = '#35A7FF'; dctx.lineWidth = lw;
+      dctx.beginPath(); dctx.arc(bx, by, lw * 5, 0, Math.PI * 2); dctx.stroke();
+      dctx.beginPath(); dctx.moveTo(bx - lw * 8, by); dctx.lineTo(bx + lw * 8, by); dctx.moveTo(bx, by - lw * 8); dctx.lineTo(bx, by + lw * 8); dctx.stroke();
+      dctx.setLineDash([lw * 3, lw * 3]);
+      dctx.beginPath(); dctx.moveTo(bx, by); dctx.lineTo(bx, 0); dctx.stroke();
+      dctx.restore();
+    }
+
+    // the ball that was tapped, with its distance
+    if (ballMark && (mode === 'ball' || nowMs < previewUntil)) {
+      const bx = ballMark.x * W, by = ballMark.y * H, br = Math.max(lw * 4, ballMark.d * W);
+      dctx.save();
+      dctx.strokeStyle = '#3DDC84'; dctx.lineWidth = lw;
+      dctx.beginPath(); dctx.arc(bx, by, br, 0, Math.PI * 2); dctx.stroke();
+      label(ballMark.dist.toFixed(1) + ' m', bx, by - br - lw * 3, lw);
+      dctx.restore();
+    }
 
     // trails
     if (selected) drawDelivery(selected, sx, sy, W, H, lw);
@@ -702,7 +797,18 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (live) drawPath(live.pts, sx, sy, lw, 0.75);
   }
 
-  function drawWicket(w, W, H, lw) {
+  function label(txt, x, yBottom, lw) {
+    const fs = Math.max(12, Math.round(lw * 7));
+    dctx.font = '600 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+    dctx.textAlign = 'center';
+    const tw = dctx.measureText(txt).width + fs * 0.8;
+    dctx.fillStyle = 'rgba(10,20,14,0.8)';
+    dctx.fillRect(x - tw / 2, yBottom - fs * 1.3, tw, fs * 1.3);
+    dctx.fillStyle = '#fff';
+    dctx.fillText(txt, x, yBottom - fs * 0.3);
+  }
+
+  function drawWicket(w, W, H, lw, strong) {
     const h = w.h * H, ww = h * STUMP_W / STUMP_H, bx = w.x * W, by = w.y * H;
     const x0 = bx - ww / 2, y0 = by - h;
     const sw = ww * 0.153;
@@ -711,9 +817,9 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     dctx.fillStyle = 'rgba(0,0,0,0.35)';
     dctx.beginPath(); dctx.ellipse(bx, by, ww * 0.9, Math.max(lw * 2, h * 0.04), 0, 0, Math.PI * 2); dctx.fill();
     // impact zone
-    dctx.fillStyle = 'rgba(53,167,255,0.16)';
+    dctx.fillStyle = strong ? 'rgba(53,167,255,0.4)' : 'rgba(53,167,255,0.16)';
     dctx.fillRect(x0, y0, ww, h);
-    dctx.strokeStyle = 'rgba(53,167,255,0.9)'; dctx.lineWidth = lw * 0.8;
+    dctx.strokeStyle = 'rgba(53,167,255,0.9)'; dctx.lineWidth = lw * (strong ? 1.5 : 0.8);
     dctx.strokeRect(x0, y0, ww, h);
     // stumps
     const centres = [x0 + sw / 2, bx, x0 + ww - sw / 2];
@@ -733,17 +839,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     dctx.globalAlpha = 1;
     // distance label
     const D = (() => { const r = { h: w.h * PH }; return r.h >= 2 ? focalProc() * STUMP_H / r.h : null; })();
-    if (D) {
-      const fs = Math.max(12, Math.round(lw * 7));
-      dctx.font = '600 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
-      dctx.textAlign = 'center';
-      const txt = D.toFixed(1) + ' m';
-      const tw = dctx.measureText(txt).width + fs * 0.8;
-      dctx.fillStyle = 'rgba(10,20,14,0.8)';
-      dctx.fillRect(bx - tw / 2, y0 - bh - fs * 1.6, tw, fs * 1.3);
-      dctx.fillStyle = '#fff';
-      dctx.fillText(txt, bx, y0 - bh - fs * 0.6);
-    }
+    if (D) label((strong ? 'Wicket ' : '') + D.toFixed(1) + ' m', bx, y0 - bh - lw * 2, lw);
     dctx.restore();
   }
 
@@ -789,7 +885,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 
   disp.addEventListener('pointerdown', e => {
     const p = normPt(e);
-    if (mode === 'wicket' || mode === 'zone') { dragStart = p; dragNow = p; disp.setPointerCapture(e.pointerId); return; }
+    if (mode) { dragStart = p; dragNow = p; disp.setPointerCapture(e.pointerId); return; }
     if (wk) {
       const r = wkRect(1, 1);
       const padX = Math.max(0.03, r.w), padY = 0.03;
@@ -803,13 +899,37 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (dragStart) { dragNow = normPt(e); return; }
     if (moveOff) { const p = normPt(e); wk = { x: p.x + moveOff.dx, y: p.y + moveOff.dy, h: wk.h }; }
   });
+  function placeWicket(base, h) {
+    wk = { x: base.x, y: base.y, h }; kFocal = null; $('measured').value = '';
+    save(); rejudge();
+    wkFlashUntil = performance.now() + 3000;
+    const next = setupFlow;
+    setMode(next ? 'ball' : null);
+    const D = wicketDist();
+    const msg = 'Wicket placed' + (D ? ', ' + D.toFixed(1) + ' m away' : '');
+    if (next) hint(msg + '. Now hold a ball still and tap it');
+    else flash(msg + '. Drag it to fine-tune.', 4000);
+  }
   function endPointer() {
     if (moveOff) { moveOff = null; save(); rejudge(); return; }
     if (!dragStart || !dragNow) { dragStart = dragNow = null; return; }
+    const cr = disp.getBoundingClientRect();
+    const isTap = Math.hypot((dragNow.x - dragStart.x) * cr.width, (dragNow.y - dragStart.y) * cr.height) < 12;
     if (mode === 'wicket') {
-      const h = dragStart.y - dragNow.y;
-      if (h > 0.02) { wk = { x: dragStart.x, y: dragStart.y, h }; kFocal = null; $('measured').value = ''; save(); setMode(null); rejudge(); flash('Wicket placed. Drag it to fine-tune.'); }
-      else flash('Drag upwards from the base of the stumps');
+      // either drag from base to top, or tap the base and then the top
+      let base = null, top = null;
+      if (!isTap) { base = dragStart; top = dragNow; }
+      else if (!tapBase) { tapBase = dragStart; hint('Now tap the top of the stumps'); }
+      else { base = tapBase; top = dragStart; }
+      if (base) {
+        const h = base.y - top.y;
+        if (h > 0.02) placeWicket(base, h);
+        else if (isTap) { tapBase = top; hint('Moved the base. Now tap the top of the stumps'); }
+        else flash('Drag upwards from the base of the stumps');
+      }
+    } else if (mode === 'ball') {
+      const msg = calibrateBall(dragStart);
+      if (msg) { setMode(null); flash(msg, 5000); }
     } else if (mode === 'zone') {
       const nz = normRect(dragStart, dragNow);
       zone = (nz.x1 - nz.x0 > 0.03 && nz.y1 - nz.y0 > 0.03) ? nz : null;
