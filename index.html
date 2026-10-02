@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wicket tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F7F1; --ink:#15211A; --muted:#58695E; --panel:#FFFFFF; --line:#D2DACE; --soft:#EAEFE6;
+  --board:#1C3828; --board-ink:#F3C433; --board-dim:#A9BFAF;
+  --btn:#1C3828; --btn-ink:#FFFFFF; --zone:#35A7FF; --warn:#B4441F;
+  --hit:#3DDC84; --miss:#FF5A5A; --call:#F3C433;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1813; --ink:#E5ECE7; --muted:#93A69A; --panel:#15231B; --line:#28392E; --soft:#1B2B21;
+    --board:#09140E; --board-dim:#7E978A; --btn:#F3C433; --btn-ink:#10180F; --warn:#FF8A5C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1813; --ink:#E5ECE7; --muted:#93A69A; --panel:#15231B; --line:#28392E; --soft:#1B2B21;
+  --board:#09140E; --board-dim:#7E978A; --btn:#F3C433; --btn-ink:#10180F; --warn:#FF8A5C;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:18px 16px 32px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font:700 2.1rem/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0}
+header p{margin:0;color:var(--muted);font-size:.95rem}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:1fr}}
+
+.stage-wrap{background:#000;border-radius:12px;overflow:hidden}
+.stage-wrap.has-bar{border-radius:12px 12px 0 0}
+.stage{position:relative;width:100%;max-width:calc(72vh * var(--ar,1.7778));aspect-ratio:var(--ar,1.7778);margin:0 auto;background:#000}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage video{object-fit:fill}
+.stage canvas{touch-action:none}
+.stage.picking canvas{cursor:crosshair}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#EAF1EC;
+  background:radial-gradient(ellipse at 50% 60%,#2E5A3E 0%,#17301F 70%)}
+.empty h2{font:700 2rem/1.05 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 6px}
+.empty p{margin:0 0 16px;max-width:40ch;color:#C5D6CB}
+.empty .row{justify-content:center}
+.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,20,14,.85);color:#fff;padding:6px 12px;border-radius:999px;font-size:.9rem;white-space:nowrap;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.verdict-pop{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 18px;border-radius:8px;font:700 1.8rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:#0B1510;pointer-events:none}
+
+.filebar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px}
+.filebar input[type=range]{flex:1;min-width:60px}
+
+.panel{display:flex;flex-direction:column;gap:14px}
+.board{background:var(--board);color:#fff;border-radius:12px;padding:16px 18px 14px}
+.board-verdict{font:700 3.6rem/0.95 "Barlow Condensed","Arial Narrow",sans-serif;color:var(--board-ink)}
+.board-verdict.hitting{color:var(--hit)} .board-verdict.missing{color:var(--miss)} .board-verdict.clipping{color:var(--call)}
+.board-note{color:var(--board-dim);font-size:.9rem;margin-top:6px;min-height:1.4em}
+.board-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14)}
+.board-stats b{display:block;font:600 1.6rem/1 "Barlow Condensed","Arial Narrow",sans-serif;font-variant-numeric:tabular-nums}
+.board-stats span{font-size:.8rem;color:var(--board-dim)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{font:600 1.25rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+button{appearance:none;border:1px solid transparent;background:var(--btn);color:var(--btn-ink);font:600 .95rem/1 "Barlow",system-ui,sans-serif;padding:10px 14px;border-radius:8px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.on{outline:2px solid var(--zone);outline-offset:1px}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--zone);outline-offset:2px}
+.empty button.ghost{color:#fff;border-color:rgba(255,255,255,.4)}
+label.field{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.92rem;margin-top:12px}
+label.field input{width:84px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.slider{margin-top:10px}
+.slider .top{display:flex;justify-content:space-between;font-size:.9rem}
+.slider .top output{color:var(--muted);font-variant-numeric:tabular-nums}
+.slider input{width:100%;accent-color:#FF3F8E}
+.small{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+ol.steps{margin:0;padding-left:1.2em;font-size:.92rem;color:var(--muted)}
+ol.steps li{margin:3px 0}
+details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif}
+.check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.92rem}
+.log{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
+.log li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--soft);cursor:pointer;border-radius:6px}
+.log li:hover,.log li.sel{background:var(--soft)}
+.log .v{font:600 1.15rem/1 "Barlow Condensed","Arial Narrow",sans-serif}
+.log .v.hitting{color:#1E9E58} .log .v.missing{color:#D63B3B} .log .v.clipping{color:#B88A00}
+.log .meta{font-size:.82rem;color:var(--muted)}
+.log .empty-log{cursor:default;color:var(--muted);font-size:.9rem}
+.log .empty-log:hover{background:none}
+.err{color:var(--warn);font-size:.9rem;margin-top:8px}
+.err:empty{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Wicket tracker</h1>
+    <p>Put a virtual wicket on your real stumps and see if the ball would hit.</p>
+  </header>
+
+  <div class="grid">
+    <section>
+      <div class="stage-wrap" id="stageWrap">
+        <div class="stage" id="stage">
+          <video id="vid" playsinline muted autoplay></video>
+          <canvas id="disp" aria-label="Camera view with wicket and ball overlay"></canvas>
+          <div class="empty" id="empty">
+            <h2>Set up behind the stumps</h2>
+            <p>Fix your phone 2 to 4 metres behind the stumps, about stump height, looking down the pitch. Then start the camera or open a clip.</p>
+            <div class="row">
+              <button id="camBtn2">Use camera</button>
+              <button class="ghost" id="fileBtn2">Open video</button>
+            </div>
+          </div>
+          <div class="hint" id="hint" hidden></div>
+          <div class="verdict-pop" id="pop" hidden></div>
+        </div>
+      </div>
+      <div class="filebar" id="filebar" hidden>
+        <button id="playBtn">Pause</button>
+        <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position in clip">
+        <select id="rate" aria-label="Playback speed">
+          <option value="1">1×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.25">0.25×</option>
+        </select>
+      </div>
+      <p class="err" id="err"></p>
+    </section>
+
+    <aside class="panel">
+      <div class="board" aria-live="polite">
+        <div class="board-verdict" id="verdict">Ready</div>
+        <div class="board-note" id="note">Place the wicket to get decisions</div>
+        <div class="board-stats">
+          <div><b id="dist">––</b><span>to stumps</span></div>
+          <div><b id="nDel">0</b><span>deliveries</span></div>
+          <div><b id="fps">0</b><span>frames/sec</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Source</h3>
+        <div class="row">
+          <button id="camBtn">Use camera</button>
+          <button class="ghost" id="fileBtn">Open video</button>
+          <input type="file" id="file" accept="video/*" hidden>
+        </div>
+        <p class="small">Use the normal 1× lens, not ultra-wide. The phone must not move once the wicket is placed.</p>
+      </div>
+
+      <div class="card">
+        <h3>Wicket</h3>
+        <ol class="steps">
+          <li>Tap Place wicket.</li>
+          <li>Press at the bottom of the middle stump and drag up to the top of the stumps.</li>
+          <li>Drag the virtual wicket to fine-tune it.</li>
+          <li>Bowl.</li>
+        </ol>
+        <div class="row" style="margin-top:12px">
+          <button id="wkBtn">Place wicket</button>
+          <button class="ghost" id="zoneBtn">Detection zone</button>
+          <button class="ghost" id="resetBtn">Reset</button>
+        </div>
+        <label class="field">Measured distance to stumps (m)
+          <input type="number" id="measured" min="0.5" max="30" step="0.05" placeholder="optional">
+        </label>
+        <p class="small">Distance is estimated from the stumps' height in the picture. If you measure the real distance with a tape, enter it once and the estimate locks to your phone's lens.</p>
+      </div>
+
+      <details class="card">
+        <summary>Detection tuning</summary>
+        <div class="slider"><div class="top"><span>Ball brightness</span><output id="o_white"></output></div>
+          <input type="range" id="s_white" min="120" max="250" step="1"></div>
+        <div class="slider"><div class="top"><span>Colour tolerance</span><output id="o_sat"></output></div>
+          <input type="range" id="s_sat" min="10" max="90" step="1"></div>
+        <div class="slider"><div class="top"><span>Movement needed</span><output id="o_motion"></output></div>
+          <input type="range" id="s_motion" min="8" max="80" step="1"></div>
+        <div class="slider"><div class="top"><span>Smallest ball size</span><output id="o_minA"></output></div>
+          <input type="range" id="s_minA" min="1" max="40" step="1"></div>
+        <div class="slider"><div class="top"><span>Largest ball size</span><output id="o_maxA"></output></div>
+          <input type="range" id="s_maxA" min="40" max="3000" step="20"></div>
+        <label class="check"><input type="checkbox" id="showMask"> Show what the tracker sees</label>
+        <p class="small">Pink is what it thinks is a moving white ball. If it misses the ball, lower brightness or movement. If it grabs shirts and pads, draw a detection zone or raise movement.</p>
+      </details>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <h3 style="margin:0">Deliveries</h3>
+          <button class="ghost" id="clearBtn" style="padding:6px 10px">Clear</button>
+        </div>
+        <ul class="log" id="log"><li class="empty-log">Deliveries appear here. Tap one to see its path again.</li></ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video = $('vid'), disp = $('disp'), dctx = disp.getContext('2d');
+  const proc = document.createElement('canvas');
+  const pctx = proc.getContext('2d', { willReadFrequently: true });
+  const maskC = document.createElement('canvas'), mctx = maskC.getContext('2d');
+
+  // Real-world sizes in metres
+  const BALL = 0.072, STUMP_H = 0.711, STUMP_W = 0.2286;
+  const DEFAULT_K = 0.5 / Math.tan(65 / 2 * Math.PI / 180); // focal length / long side, typical 1x phone lens
+  const PROC_W = 640, MAX_MISS = 3, MIN_PTS = 5, MAX_TRACKS = 12;
+
+  let PW = PROC_W, PH = 360;
+  let prev, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
+  let stream = null, fileURL = null, running = false, sourceType = null, rvfc = null;
+  let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
+  let mode = null, dragStart = null, dragNow = null, moveOff = null;
+  let zone = null, wk = null, kFocal = null;
+  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false };
+
+  // ---------- persistence ----------
+  function save() { try { localStorage.setItem('wkt-v2', JSON.stringify({ S, zone, wk, kFocal })); } catch (e) {} }
+  try {
+    const o = JSON.parse(localStorage.getItem('wkt-v2') || 'null');
+    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; kFocal = o.kFocal || null; }
+  } catch (e) {}
+  S.showMask = false;
+
+  // ---------- geometry ----------
+  const focalProc = () => (kFocal || DEFAULT_K) * Math.max(PW, PH);
+  function wkRect(W, H) {
+    if (!wk) return null;
+    const h = wk.h * H, w = h * STUMP_W / STUMP_H, bx = wk.x * W, by = wk.y * H;
+    return { x0: bx - w / 2, x1: bx + w / 2, y0: by - h, y1: by, w, h, bx, by };
+  }
+  function wicketDist() {
+    const r = wkRect(PW, PH);
+    if (!r || r.h < 2) return null;
+    return focalProc() * STUMP_H / r.h;
+  }
+
+  // ---------- UI bindings ----------
+  ['white', 'sat', 'motion', 'minA', 'maxA'].forEach(k => {
+    const el = $('s_' + k), out = $('o_' + k);
+    el.value = S[k]; out.textContent = S[k];
+    el.addEventListener('input', () => { S[k] = +el.value; out.textContent = el.value; save(); });
+  });
+  $('showMask').addEventListener('change', e => { S.showMask = e.target.checked; });
+  const pick = () => $('file').click();
+  $('fileBtn').onclick = pick; $('fileBtn2').onclick = pick;
+  $('camBtn').onclick = startCamera; $('camBtn2').onclick = startCamera;
+  $('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
+  $('wkBtn').onclick = () => setMode(mode === 'wicket' ? null : 'wicket');
+  $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
+  $('resetBtn').onclick = () => { zone = null; wk = null; kFocal = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and zone cleared'); };
+  $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
+  $('measured').addEventListener('change', () => {
+    const v = parseFloat($('measured').value);
+    const r = wkRect(PW, PH);
+    if (!(v > 0)) { kFocal = null; save(); rejudge(); return; }
+    if (!r) { setError('Place the wicket first, then enter the measured distance.'); return; }
+    setError('');
+    kFocal = (v * r.h / STUMP_H) / Math.max(PW, PH);
+    save(); rejudge(); flash('Distance locked to ' + v + ' m');
+  });
+  $('playBtn').onclick = () => { video.paused ? video.play() : video.pause(); };
+  $('rate').addEventListener('change', () => { video.playbackRate = +$('rate').value; });
+  $('seek').addEventListener('input', () => { if (video.duration) video.currentTime = $('seek').value / 1000 * video.duration; });
+  video.addEventListener('play', () => { $('playBtn').textContent = 'Pause'; });
+  video.addEventListener('pause', () => { $('playBtn').textContent = 'Play'; });
+  video.addEventListener('timeupdate', () => { if (sourceType === 'file' && video.duration) $('seek').value = Math.round(video.currentTime / video.duration * 1000); });
+  video.addEventListener('seeked', () => { prevValid = false; tracks = []; });
+  video.addEventListener('ended', () => { tracks.forEach(finalize); tracks = []; });
+
+  let hintTimer = null;
+  function hint(t) { const h = $('hint'); if (!t) { h.hidden = true; return; } h.textContent = t; h.hidden = false; }
+  function flash(t) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, 1800); }
+  function setError(t) { $('err').textContent = t || ''; }
+  function setMode(m) {
+    mode = m;
+    $('wkBtn').classList.toggle('on', m === 'wicket');
+    $('zoneBtn').classList.toggle('on', m === 'zone');
+    $('stage').classList.toggle('picking', !!m);
+    if (m === 'wicket') hint('Press at the base of the middle stump, drag up to the top');
+    else if (m === 'zone') hint('Drag a box over the area the ball travels through');
+    else hint(null);
+  }
+
+  // ---------- sources ----------
+  async function startCamera() {
+    setError('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('This browser has no camera access here. Open the page over https, or film a clip and use Open video.');
+      return;
+    }
+    stopSource();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, frameRate: { ideal: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+    } catch (err) {
+      const name = err && err.name;
+      if (name === 'NotAllowedError') setError('The camera permission was refused. Allow camera for this site in your browser settings, then tap Use camera again.');
+      else if (name === 'NotFoundError') setError('No camera was found on this device.');
+      else if (name === 'NotReadableError') setError('Another app is using the camera. Close it and try again.');
+      else setError('Live camera isn\'t available on this page. Film a clip and use Open video.');
+      return;
+    }
+    sourceType = 'camera';
+    video.srcObject = stream;
+    $('filebar').hidden = true; $('stageWrap').classList.remove('has-bar');
+    if (!video.videoWidth) await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
+    try { await video.play(); } catch (e) {}
+    onSourceReady();
+  }
+
+  function openFile(f) {
+    setError('');
+    stopSource();
+    fileURL = URL.createObjectURL(f);
+    sourceType = 'file';
+    video.addEventListener('loadeddata', async () => {
+      video.playbackRate = +$('rate').value;
+      $('filebar').hidden = false; $('stageWrap').classList.add('has-bar');
+      onSourceReady();
+      try { await video.play(); } catch (e) {}
+    }, { once: true });
+    video.addEventListener('error', () => setError('That video could not be opened here. Try an MP4 or MOV.'), { once: true });
+    video.src = fileURL;
+  }
+
+  function stopSource() {
+    running = false;
+    if (rvfc != null && video.cancelVideoFrameCallback) video.cancelVideoFrameCallback(rvfc);
+    rvfc = null;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.pause();
+    video.srcObject = null;
+    video.removeAttribute('src');
+    if (fileURL) { URL.revokeObjectURL(fileURL); fileURL = null; }
+    tracks = []; prevValid = false;
+  }
+
+  function onSourceReady() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { setError('No picture came through from that source.'); return; }
+    if (vw >= vh) { PW = PROC_W; PH = Math.round(PROC_W * vh / vw); }
+    else { PH = PROC_W; PW = Math.round(PROC_W * vw / vh); }
+    proc.width = PW; proc.height = PH; maskC.width = PW; maskC.height = PH;
+    const n = PW * PH;
+    prev = new Uint8Array(n); white = new Uint8Array(n); mask = new Uint8Array(n);
+    labels = new Int32Array(n); stack = new Int32Array(n); vis = new Int32Array(n); stamp = 1;
+    maskImg = mctx.createImageData(PW, PH);
+    $('stage').style.setProperty('--ar', (vw / vh).toFixed(4));
+    $('empty').hidden = true;
+    prevValid = false; running = true; lastMT = -1;
+    sizeCanvas();
+    scheduleFrame();
+    updateBoard();
+  }
+
+  // ---------- frame processing loop ----------
+  let lastMT = -1, fpsCount = 0, fpsT = performance.now();
+  function scheduleFrame() {
+    if (!running) return;
+    if (video.requestVideoFrameCallback) rvfc = video.requestVideoFrameCallback(onFrame);
+    else setTimeout(() => onFrame(performance.now(), { mediaTime: video.currentTime }), 15);
+  }
+  function onFrame(now, meta) {
+    rvfc = null;
+    if (!running) return;
+    const mt = meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : now / 1000;
+    if (video.readyState >= 2 && mt !== lastMT) {
+      if (mt < lastMT) { prevValid = false; tracks = []; }
+      lastMT = mt;
+      try { processFrame(mt); } catch (e) { console.error(e); }
+      fpsCount++;
+    }
+    scheduleFrame();
+  }
+
+  function zonePx() {
+    if (!zone) return [0, 0, PW - 1, PH - 1];
+    return [Math.floor(zone.x0 * PW), Math.floor(zone.y0 * PH), Math.ceil(zone.x1 * PW) - 1, Math.ceil(zone.y1 * PH) - 1];
+  }
+
+  function processFrame(t) {
+    pctx.drawImage(video, 0, 0, PW, PH);
+    const d = pctx.getImageData(0, 0, PW, PH).data;
+    const first = !prevValid;
+    const [zx0, zy0, zx1, zy1] = zonePx();
+    const wT = S.white, sT = S.sat, mT = S.motion;
+    let moving = 0, zoneArea = 0;
+    white.fill(0); mask.fill(0);
+    for (let y = 0; y < PH; y++) {
+      const inY = y >= zy0 && y <= zy1;
+      for (let x = 0; x < PW; x++) {
+        const i = y * PW + x, p = i * 4;
+        const r = d[p], g = d[p + 1], b = d[p + 2];
+        const gray = (r + g + b) / 3 | 0;
+        const diff = gray - prev[i];
+        prev[i] = gray;
+        if (!inY || x < zx0 || x > zx1) continue;
+        zoneArea++;
+        const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        const isW = mx >= wT && mx - mn <= sT;
+        if (isW) white[i] = 1;
+        if (!first && (diff > mT || diff < -mT)) { moving++; if (isW) mask[i] = 1; }
+      }
+    }
+    prevValid = true;
+    if (first) return;
+    if (zoneArea && moving > zoneArea * 0.12) {
+      candidates = [];
+      if (!mode) flash('Too much movement, keep the phone still');
+      tracks.forEach(tr => tr.miss++);
+      pruneTracks();
+      return;
+    }
+    candidates = findCandidates();
+    updateTracks(candidates, t);
+  }
+
+  // moving-white blobs, then measure the full white ball around each one
+  function findCandidates() {
+    labels.fill(0);
+    const seeds = []; let lab = 0; const n = PW * PH;
+    for (let i = 0; i < n && seeds.length < 40; i++) {
+      if (!mask[i] || labels[i]) continue;
+      lab++;
+      let sp = 0; stack[sp++] = i; labels[i] = lab;
+      let area = 0;
+      while (sp) {
+        const j = stack[--sp]; area++;
+        const x = j % PW, y = (j / PW) | 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy; if (yy < 0 || yy >= PH) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx; if (xx < 0 || xx >= PW) continue;
+            const k = yy * PW + xx;
+            if (mask[k] && !labels[k]) { labels[k] = lab; stack[sp++] = k; }
+          }
+        }
+      }
+      if (area >= Math.max(1, Math.floor(S.minA / 2))) seeds.push(i);
+    }
+    const out = [];
+    for (const s of seeds) {
+      const c = growWhite(s, S.maxA);
+      if (c) out.push(c);
+    }
+    return out;
+  }
+
+  function growWhite(seed, cap) {
+    stamp++;
+    if (vis[seed] === stamp) return null;
+    let sp = 0; stack[sp++] = seed; vis[seed] = stamp;
+    let area = 0, sx = 0, sy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
+    while (sp) {
+      const j = stack[--sp]; area++;
+      if (area > cap) return null; // too big to be a ball (shirt, pad, sightscreen)
+      const x = j % PW, y = (j / PW) | 0;
+      sx += x; sy += y;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy; if (yy < 0 || yy >= PH) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx; if (xx < 0 || xx >= PW) continue;
+          const k = yy * PW + xx;
+          if (white[k] && vis[k] !== stamp) { vis[k] = stamp; stack[sp++] = k; }
+        }
+      }
+    }
+    if (area < S.minA) return null;
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    const fill = area / (bw * bh), asp = Math.max(bw, bh) / Math.min(bw, bh);
+    if (fill < 0.35 || asp > 3.5) return null;
+    const dEq = 2 * Math.sqrt(area / Math.PI);
+    return { x: sx / area, y: sy / area, d: (dEq + Math.min(bw, bh)) / 2 };
+  }
+
+  // ---------- tracking ----------
+  function updateTracks(cands, t) {
+    const used = new Array(cands.length).fill(false);
+    tracks.sort((a, b) => b.pts.length - a.pts.length);
+    for (const tr of tracks) {
+      const L = tr.pts[tr.pts.length - 1], steps = tr.miss + 1;
+      const px = L.x + tr.vx * steps, py = L.y + tr.vy * steps;
+      const sp = Math.hypot(tr.vx, tr.vy);
+      const gate = tr.pts.length < 2 ? Math.max(PW, PH) * 0.1 : Math.max(10, sp * 0.9 * steps + 8);
+      let best = -1, bd = gate;
+      for (let k = 0; k < cands.length; k++) {
+        if (used[k]) continue;
+        const ratio = cands[k].d / L.d;
+        if (ratio > 2.2 || ratio < 0.45) continue;
+        const dd = Math.hypot(cands[k].x - px, cands[k].y - py);
+        if (dd < bd) { bd = dd; best = k; }
+      }
+      if (best >= 0) {
+        used[best] = true;
+        const c = cands[best];
+        const nvx = (c.x - L.x) / steps, nvy = (c.y - L.y) / steps;
+        if (tr.pts.length < 2) { tr.vx = nvx; tr.vy = nvy; } else { tr.vx = 0.5 * tr.vx + 0.5 * nvx; tr.vy = 0.5 * tr.vy + 0.5 * nvy; }
+        tr.pts.push({ x: c.x, y: c.y, d: c.d, t });
+        tr.miss = 0;
+      } else tr.miss++;
+    }
+    pruneTracks();
+    for (let k = 0; k < cands.length; k++) {
+      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t }], vx: 0, vy: 0, miss: 0 });
+    }
+  }
+  function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
+  function bestActive() { let b = null; for (const tr of tracks) if (tr.pts.length >= 3 && (!b || tr.pts.length > b.pts.length)) b = tr; return b; }
+
+  const median = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
+
+  function finalize(tr) {
+    const pts = tr.pts;
+    if (pts.length < MIN_PTS) return;
+    let path = 0;
+    for (let k = 1; k < pts.length; k++) path += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+    const net = Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y);
+    const grow = median(pts.slice(-3).map(p => p.d)) / median(pts.slice(0, 3).map(p => p.d));
+    const moved = net > Math.max(PW, PH) * 0.04, grew = grow > 1.3;
+    if (!moved && !grew) return;
+    if (moved && !grew && path > 0 && net / path < 0.5) return;
+    const del = { id: nextId++, pts: pts.map(p => ({ ...p })), at: new Date() };
+    del.res = judge(del.pts);
+    deliveries.push(del);
+    if (deliveries.length > 50) deliveries.shift();
+    selected = del;
+    renderLog(); updateBoard(); popVerdict(del);
+  }
+
+  function fit(T, V) {
+    const m = T.length; if (m < 3) return null;
+    let st = 0, sv = 0, stt = 0, stv = 0;
+    for (let i = 0; i < m; i++) { st += T[i]; sv += V[i]; stt += T[i] * T[i]; stv += T[i] * V[i]; }
+    const den = m * stt - st * st; if (den <= 1e-12) return null;
+    const b = (m * stv - st * sv) / den;
+    return { a: (sv - b * st) / m, b };
+  }
+
+  // Would the ball have hit the stumps?
+  function judge(pts) {
+    const r = wkRect(PW, PH);
+    if (!r) return { verdict: null, reason: 'Place the wicket to get a decision' };
+    const f = focalProc(), Dw = f * STUMP_H / r.h;
+    const seg = pts.slice(-Math.min(10, pts.length));
+    const t0 = seg[0].t;
+    const cx = PW / 2, cy = PH / 2;
+    const T = seg.map(p => p.t - t0), Z = seg.map(p => f * BALL / p.d);
+    // back-project into 3D (metres), where the ball's path is close to a straight line
+    const X = seg.map((p, i) => (p.x - cx) * Z[i] / f), Y = seg.map((p, i) => (p.y - cy) * Z[i] / f);
+    const fz = fit(T, Z), fx = fit(T, X), fy = fit(T, Y);
+    if (!fz || !fx || !fy) return { verdict: null, reason: 'Not enough frames on the ball' };
+    if (fz.b >= 0) return { verdict: null, reason: 'Ball wasn\'t travelling towards the stumps' };
+    const tl = T[T.length - 1];
+    const zLast = fz.a + fz.b * tl;
+    if (zLast - Dw > 6) return { verdict: null, reason: 'Ball was lost too far from the stumps to project' };
+    const tc = (Dw - fz.a) / fz.b;
+    if (tc < -0.05) return { verdict: null, reason: 'Ball was already past the stumps when tracking started' };
+    const projected = tc > tl;
+    const px = cx + f * (fx.a + fx.b * tc) / Dw;
+    let py = cy + f * (fy.a + fy.b * tc) / Dw;
+    const br = f * BALL / 2 / Dw;
+    if (py > r.y1) py = r.y1 - br; // heading into the ground near the stumps: treat as low
+    const inside = px >= r.x0 && px <= r.x1 && py >= r.y0 && py <= r.y1;
+    const dxo = Math.max(r.x0 - px, 0, px - r.x1), dyo = Math.max(r.y0 - py, 0, py - r.y1);
+    const out = Math.hypot(dxo, dyo);
+    let verdict, label;
+    if (inside) { verdict = 'hitting'; label = 'Hitting'; }
+    else if (out <= br) { verdict = 'clipping'; label = 'Umpire\'s call'; }
+    else { verdict = 'missing'; label = dyo > dxo ? 'Going over' : 'Missing'; }
+    const gap = Math.max(0, zLast - Dw);
+    return { verdict, label, x: px / PW, y: py / PH, r: br / PH, projected, gap, fit: { fx, fy, tl, tc } };
+  }
+
+  function rejudge() { deliveries.forEach(d => { d.res = judge(d.pts); }); renderLog(); updateBoard(); }
+
+  // ---------- board + log ----------
+  function noteFor(d) {
+    const res = d.res;
+    if (!res.verdict) return 'Ball ' + d.id + ': ' + res.reason;
+    return 'Ball ' + d.id + (res.projected ? ': projected ' + res.gap.toFixed(1) + ' m on to the stumps' : ': tracked all the way to the stumps');
+  }
+  function updateBoard() {
+    $('nDel').textContent = deliveries.length;
+    const D = wicketDist();
+    $('dist').textContent = D ? D.toFixed(1) + ' m' : '––';
+    const v = $('verdict');
+    v.className = 'board-verdict';
+    if (!selected) {
+      v.textContent = wk ? 'Ready' : 'No wicket';
+      $('note').textContent = wk ? 'Waiting for a delivery' : 'Place the wicket to get decisions';
+      return;
+    }
+    const res = selected.res;
+    if (res.verdict) { v.textContent = res.label; v.classList.add(res.verdict); }
+    else v.textContent = 'No decision';
+    $('note').textContent = noteFor(selected);
+  }
+  let popTimer = null;
+  function popVerdict(d) {
+    const p = $('pop');
+    if (!d.res.verdict) return;
+    p.textContent = d.res.label;
+    p.style.background = d.res.verdict === 'hitting' ? 'var(--hit)' : d.res.verdict === 'missing' ? 'var(--miss)' : 'var(--call)';
+    p.hidden = false; clearTimeout(popTimer); popTimer = setTimeout(() => { p.hidden = true; }, 2500);
+  }
+  function renderLog() {
+    const ul = $('log'); ul.innerHTML = '';
+    if (!deliveries.length) { ul.innerHTML = '<li class="empty-log">Deliveries appear here. Tap one to see its path again.</li>'; return; }
+    deliveries.slice().reverse().forEach(d => {
+      const li = document.createElement('li');
+      if (d === selected) li.classList.add('sel');
+      li.tabIndex = 0;
+      const t = d.at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const left = document.createElement('div');
+      const name = document.createElement('div'); name.textContent = 'Ball ' + d.id;
+      const meta = document.createElement('div'); meta.className = 'meta';
+      meta.textContent = d.pts.length + ' frames, ' + (d.res.verdict ? (d.res.projected ? 'projected' : 'reached stumps') : 'no decision') + ', ' + t;
+      left.append(name, meta);
+      const v = document.createElement('span'); v.className = 'v ' + (d.res.verdict || '');
+      v.textContent = d.res.verdict ? d.res.label : '–';
+      li.append(left, v);
+      const choose = () => { selected = d; renderLog(); updateBoard(); };
+      li.onclick = choose;
+      li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } };
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- overlay drawing ----------
+  function sizeCanvas() {
+    const r = disp.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (disp.width !== w || disp.height !== h) { disp.width = w; disp.height = h; }
+  }
+  if (window.ResizeObserver) new ResizeObserver(sizeCanvas).observe($('stage'));
+  window.addEventListener('resize', sizeCanvas);
+
+  function drawLoop(now) {
+    draw();
+    if (now - fpsT > 1000) { $('fps').textContent = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; }
+    requestAnimationFrame(drawLoop);
+  }
+
+  function draw() {
+    const W = disp.width, H = disp.height;
+    dctx.clearRect(0, 0, W, H);
+    if (!running) return;
+    const lw = Math.max(2, Math.min(W, H) / 260);
+    const sx = W / PW, sy = H / PH;
+
+    if (S.showMask && mask && maskImg) {
+      const md = maskImg.data;
+      for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
+        md[p] = 255; md[p + 1] = mask[i] ? 63 : 255; md[p + 2] = mask[i] ? 142 : 255;
+        md[p + 3] = mask[i] ? 255 : (white[i] ? 70 : 0);
+      }
+      mctx.putImageData(maskImg, 0, 0);
+      dctx.imageSmoothingEnabled = false; dctx.drawImage(maskC, 0, 0, W, H); dctx.imageSmoothingEnabled = true;
+      dctx.strokeStyle = '#FFE14D'; dctx.lineWidth = lw * 0.7;
+      for (const c of candidates) { dctx.beginPath(); dctx.arc(c.x * sx, c.y * sy, Math.max(c.d * sx / 2, lw * 3), 0, Math.PI * 2); dctx.stroke(); }
+    }
+
+    // detection zone
+    const z = mode === 'zone' && dragStart && dragNow ? normRect(dragStart, dragNow) : zone;
+    if (z) {
+      dctx.save();
+      dctx.fillStyle = 'rgba(0,0,0,0.35)';
+      dctx.beginPath(); dctx.rect(0, 0, W, H); dctx.rect(z.x0 * W, z.y0 * H, (z.x1 - z.x0) * W, (z.y1 - z.y0) * H); dctx.fill('evenodd');
+      dctx.strokeStyle = '#35A7FF'; dctx.lineWidth = lw; dctx.setLineDash([lw * 4, lw * 3]);
+      dctx.strokeRect(z.x0 * W, z.y0 * H, (z.x1 - z.x0) * W, (z.y1 - z.y0) * H);
+      dctx.restore();
+    }
+
+    // AR wicket
+    let w = wk;
+    if (mode === 'wicket' && dragStart && dragNow) {
+      const h = dragStart.y - dragNow.y;
+      w = h > 0.01 ? { x: dragStart.x, y: dragStart.y, h } : null;
+    }
+    if (w) drawWicket(w, W, H, lw);
+
+    // trails
+    if (selected) drawDelivery(selected, sx, sy, W, H, lw);
+    const live = bestActive();
+    if (live) drawPath(live.pts, sx, sy, lw, 0.75);
+  }
+
+  function drawWicket(w, W, H, lw) {
+    const h = w.h * H, ww = h * STUMP_W / STUMP_H, bx = w.x * W, by = w.y * H;
+    const x0 = bx - ww / 2, y0 = by - h;
+    const sw = ww * 0.153;
+    dctx.save();
+    // ground shadow
+    dctx.fillStyle = 'rgba(0,0,0,0.35)';
+    dctx.beginPath(); dctx.ellipse(bx, by, ww * 0.9, Math.max(lw * 2, h * 0.04), 0, 0, Math.PI * 2); dctx.fill();
+    // impact zone
+    dctx.fillStyle = 'rgba(53,167,255,0.16)';
+    dctx.fillRect(x0, y0, ww, h);
+    dctx.strokeStyle = 'rgba(53,167,255,0.9)'; dctx.lineWidth = lw * 0.8;
+    dctx.strokeRect(x0, y0, ww, h);
+    // stumps
+    const centres = [x0 + sw / 2, bx, x0 + ww - sw / 2];
+    for (const cx of centres) {
+      const g = dctx.createLinearGradient(cx - sw / 2, 0, cx + sw / 2, 0);
+      g.addColorStop(0, '#C9A571'); g.addColorStop(0.45, '#F7E6C4'); g.addColorStop(1, '#B58E5A');
+      dctx.fillStyle = g;
+      dctx.globalAlpha = 0.85;
+      dctx.fillRect(cx - sw / 2, y0, sw, h);
+    }
+    // bails
+    dctx.globalAlpha = 0.95;
+    dctx.fillStyle = '#E9CD95';
+    const bh = Math.max(lw, h * 0.03);
+    dctx.fillRect(centres[0] - sw * 0.3, y0 - bh * 0.8, centres[1] - centres[0] + sw * 0.25, bh);
+    dctx.fillRect(centres[1] + sw * 0.05, y0 - bh * 0.8, centres[2] - centres[1] + sw * 0.25, bh);
+    dctx.globalAlpha = 1;
+    // distance label
+    const D = (() => { const r = { h: w.h * PH }; return r.h >= 2 ? focalProc() * STUMP_H / r.h : null; })();
+    if (D) {
+      const fs = Math.max(12, Math.round(lw * 7));
+      dctx.font = '600 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
+      dctx.textAlign = 'center';
+      const txt = D.toFixed(1) + ' m';
+      const tw = dctx.measureText(txt).width + fs * 0.8;
+      dctx.fillStyle = 'rgba(10,20,14,0.8)';
+      dctx.fillRect(bx - tw / 2, y0 - bh - fs * 1.6, tw, fs * 1.3);
+      dctx.fillStyle = '#fff';
+      dctx.fillText(txt, bx, y0 - bh - fs * 0.6);
+    }
+    dctx.restore();
+  }
+
+  function drawPath(pts, sx, sy, lw, alpha) {
+    if (pts.length < 2) return;
+    dctx.save();
+    dctx.globalAlpha = alpha; dctx.lineJoin = 'round'; dctx.lineCap = 'round';
+    dctx.strokeStyle = 'rgba(0,0,0,0.55)'; dctx.lineWidth = lw * 3;
+    dctx.beginPath(); pts.forEach((p, k) => k ? dctx.lineTo(p.x * sx, p.y * sy) : dctx.moveTo(p.x * sx, p.y * sy)); dctx.stroke();
+    dctx.strokeStyle = '#FF3F8E'; dctx.lineWidth = lw * 1.6;
+    dctx.beginPath(); pts.forEach((p, k) => k ? dctx.lineTo(p.x * sx, p.y * sy) : dctx.moveTo(p.x * sx, p.y * sy)); dctx.stroke();
+    dctx.fillStyle = '#fff';
+    pts.forEach(p => { dctx.beginPath(); dctx.arc(p.x * sx, p.y * sy, Math.max(lw, p.d * sx / 2), 0, Math.PI * 2); dctx.globalAlpha = alpha * 0.5; dctx.fill(); });
+    dctx.restore();
+  }
+
+  function drawDelivery(d, sx, sy, W, H, lw) {
+    drawPath(d.pts, sx, sy, lw, 1);
+    const res = d.res;
+    if (!res || !res.verdict) return;
+    const last = d.pts[d.pts.length - 1];
+    const ix = res.x * W, iy = res.y * H, ir = Math.max(lw * 2, res.r * H);
+    const col = res.verdict === 'hitting' ? '#3DDC84' : res.verdict === 'missing' ? '#FF5A5A' : '#F3C433';
+    dctx.save();
+    if (res.projected) {
+      dctx.strokeStyle = col; dctx.lineWidth = lw * 1.4; dctx.setLineDash([lw * 3, lw * 2.5]);
+      dctx.beginPath(); dctx.moveTo(last.x * sx, last.y * sy); dctx.lineTo(ix, iy); dctx.stroke();
+      dctx.setLineDash([]);
+    }
+    dctx.fillStyle = col; dctx.globalAlpha = 0.45;
+    dctx.beginPath(); dctx.arc(ix, iy, ir, 0, Math.PI * 2); dctx.fill();
+    dctx.globalAlpha = 1; dctx.strokeStyle = col; dctx.lineWidth = lw;
+    dctx.beginPath(); dctx.arc(ix, iy, ir, 0, Math.PI * 2); dctx.stroke();
+    dctx.restore();
+  }
+
+  // ---------- pointer input ----------
+  function normPt(e) {
+    const r = disp.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+  }
+  const normRect = (a, b) => ({ x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) });
+
+  disp.addEventListener('pointerdown', e => {
+    const p = normPt(e);
+    if (mode === 'wicket' || mode === 'zone') { dragStart = p; dragNow = p; disp.setPointerCapture(e.pointerId); return; }
+    if (wk) {
+      const r = wkRect(1, 1);
+      const padX = Math.max(0.03, r.w), padY = 0.03;
+      if (p.x >= r.x0 - padX && p.x <= r.x1 + padX && p.y >= r.y0 - padY && p.y <= r.y1 + padY) {
+        moveOff = { dx: wk.x - p.x, dy: wk.y - p.y };
+        disp.setPointerCapture(e.pointerId);
+      }
+    }
+  });
+  disp.addEventListener('pointermove', e => {
+    if (dragStart) { dragNow = normPt(e); return; }
+    if (moveOff) { const p = normPt(e); wk = { x: p.x + moveOff.dx, y: p.y + moveOff.dy, h: wk.h }; }
+  });
+  function endPointer() {
+    if (moveOff) { moveOff = null; save(); rejudge(); return; }
+    if (!dragStart || !dragNow) { dragStart = dragNow = null; return; }
+    if (mode === 'wicket') {
+      const h = dragStart.y - dragNow.y;
+      if (h > 0.02) { wk = { x: dragStart.x, y: dragStart.y, h }; kFocal = null; $('measured').value = ''; save(); setMode(null); rejudge(); flash('Wicket placed. Drag it to fine-tune.'); }
+      else flash('Drag upwards from the base of the stumps');
+    } else if (mode === 'zone') {
+      const nz = normRect(dragStart, dragNow);
+      zone = (nz.x1 - nz.x0 > 0.03 && nz.y1 - nz.y0 > 0.03) ? nz : null;
+      save(); setMode(null); flash(zone ? 'Detection zone set' : 'Detection zone cleared');
+    }
+    dragStart = dragNow = null;
+  }
+  disp.addEventListener('pointerup', endPointer);
+  disp.addEventListener('pointercancel', () => { dragStart = dragNow = null; moveOff = null; });
+
+  updateBoard();
+  requestAnimationFrame(drawLoop);
+})();
+</script>
+</body>
+</html>
