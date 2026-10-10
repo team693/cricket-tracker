@@ -41,9 +41,20 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 @media (max-width:880px){.grid{grid-template-columns:1fr}}
 
-.stage-wrap{background:#000;border-radius:12px;overflow:hidden}
-.stage-wrap.has-bar{border-radius:12px 12px 0 0}
-.stage{position:relative;width:100%;max-width:calc(72vh * var(--ar,1.7778));aspect-ratio:var(--ar,1.7778);margin:0 auto;background:#000}
+.stage{position:relative;width:100%;max-width:calc(72vh * var(--ar,1.7778));aspect-ratio:var(--ar,1.7778);margin:0 auto;background:#000;border-radius:12px;overflow:hidden}
+.stage-wrap.has-bar .stage{border-radius:12px 12px 0 0}
+/* phones: picture and setup buttons fit on one screen */
+@media (max-width:880px){
+  .wrap{padding:10px 12px 96px}
+  header{margin-bottom:8px}
+  h1{font-size:1.5rem}
+  header p{display:none}
+  .stage{max-width:min(100%, calc((100vh - 190px) * var(--ar,1.7778)));max-width:min(100%, calc((100svh - 190px) * var(--ar,1.7778)))}
+}
+@media (orientation:landscape) and (max-height:520px){
+  header{display:none}
+  .stage{max-width:min(100%, calc((100vh - 24px) * var(--ar,1.7778)));max-width:min(100%, calc((100svh - 24px) * var(--ar,1.7778)))}
+}
 .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .stage video{object-fit:fill}
 .stage canvas{touch-action:none}
@@ -635,9 +646,19 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     }
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
+  // the live trail is only drawn for something that already looks like a delivery:
+  // a few frames long, getting bigger and moving in a fairly straight line
+  function looksLikeBall(tr) {
+    const p = tr.pts, n = p.length;
+    if (n < 4 || p[n - 1].d < p[0].d * 1.08) return false;
+    let path = 0;
+    for (let k = 1; k < n; k++) path += Math.hypot(p[k].x - p[k - 1].x, p[k].y - p[k - 1].y);
+    const net = Math.hypot(p[n - 1].x - p[0].x, p[n - 1].y - p[0].y);
+    return path < 2 || net / path > 0.75;
+  }
   function bestActive() {
     let b = null;
-    for (const tr of tracks) if (tr.pts.length >= 3 && tr.pts[tr.pts.length - 1].d >= tr.pts[0].d && (!b || tr.pts.length > b.pts.length)) b = tr;
+    for (const tr of tracks) if (looksLikeBall(tr) && (!b || tr.pts.length > b.pts.length)) b = tr;
     return b;
   }
 
