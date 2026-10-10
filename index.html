@@ -118,7 +118,49 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .tools button{flex:1 1 0;min-width:0;padding:14px 10px;font-size:1rem}
 .tools-help{margin-top:6px}
-.err{color:var(--warn);font-size:.9rem;margin-top:8px}
+.tabs{display:flex;gap:4px;background:var(--soft);border-radius:10px;padding:3px}
+.tabs button{background:transparent;color:var(--ink);padding:8px 16px;border-radius:8px}
+.tabs button.on{background:var(--btn);color:var(--btn-ink);outline:0}
+.scorer{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.scorer > div{display:flex;flex-direction:column;gap:12px}
+.sc-board{padding:14px 16px}
+.sc-title{color:var(--board-dim);font-size:.9rem}
+.sc-score{font:700 3rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:var(--board-ink);font-variant-numeric:tabular-nums;margin-top:4px}
+.sc-score small{font-size:1.3rem;color:#fff;margin-left:8px}
+.sc-tight{padding:10px 12px}
+.sc-table{width:100%;border-collapse:collapse;font-size:.92rem;font-variant-numeric:tabular-nums}
+.sc-table th{text-align:right;font-weight:600;color:var(--muted);font-size:.78rem;padding:4px 4px}
+.sc-table td{text-align:right;padding:5px 4px;border-top:1px solid var(--soft)}
+.sc-table th:first-child,.sc-table td:first-child{text-align:left;width:52%}
+.sc-table td.how{text-align:left;color:var(--muted);font-size:.8rem;padding-top:0;border-top:0}
+.sc-table + .sc-table{margin-top:8px}
+.sc-over{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:30px}
+.sc-over span{min-width:30px;height:30px;padding:0 6px;border-radius:15px;background:var(--soft);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:.85rem}
+.sc-over span.b4,.sc-over span.b6{background:#1E9E58;color:#fff}
+.sc-over span.w{background:#D63B3B;color:#fff}
+.sc-over span.x{background:#F3C433;color:#10180F}
+.sc-pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sc-pad button{padding:16px 6px;font-size:1.15rem;min-width:0}
+.sc-pad .sc-wkt{background:#D63B3B;color:#fff}
+.sc-pad .sc-x{background:var(--panel);color:var(--ink);border-color:var(--line);font-size:.95rem}
+.sc-pad .sc-x.on{background:#F3C433;color:#10180F;border-color:#F3C433;outline:0}
+.sc-pad .ghost{font-size:.95rem}
+.sc-pad .sc-wide2{grid-column:span 2}
+.sc-pad button:disabled{opacity:.4}
+.sc-links{justify-content:center}
+.sc-banner{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+.sc-banner p{margin:0 0 10px}
+.sc-banner b{font-size:1.15rem}
+#scDlg{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:16px;width:min(420px,calc(100vw - 32px))}
+#scDlg::backdrop{background:rgba(0,0,0,.5)}
+#scDlg h3{font:600 1.3rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 6px}
+#scDlg label.field input,#scDlg label.field select{width:60%}
+.sc-dlg-btns{justify-content:flex-end;margin-top:16px}
+.sc-card h4{margin:14px 0 4px;font-size:1rem}
+.sc-card h4:first-child{margin-top:0}
+.sc-card .small{margin-top:4px}
+.err{color:var(--warn);
+font-size:.9rem;margin-top:8px}
 .err:empty{display:none}
 </style>
 </head>
@@ -126,10 +168,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 <div class="wrap">
   <header>
     <h1>Wicket tracker</h1>
-    <p>Put a virtual wicket on your real stumps and see if the ball would hit.</p>
+    <nav class="tabs" aria-label="Mode">
+      <button id="tabTracker" class="on" aria-pressed="true">Tracker</button>
+      <button id="tabScorer" aria-pressed="false">Scorer</button>
+    </nav>
   </header>
 
-  <div class="grid">
+  <div class="grid" id="trackerView">
     <section>
       <div class="stage-wrap" id="stageWrap">
         <div class="stage" id="stage">
@@ -226,6 +271,67 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       </div>
     </aside>
   </div>
+
+  <!-- Scorer: a separate scoring mode, not connected to the camera tracker -->
+  <section class="scorer" id="scorerView" hidden>
+    <div id="scSetup">
+      <div class="card">
+        <h3>New match</h3>
+        <label class="field">Team batting first <input type="text" id="scTeamA" placeholder="Team A" maxlength="30" autocomplete="off"></label>
+        <label class="field">Team bowling first <input type="text" id="scTeamB" placeholder="Team B" maxlength="30" autocomplete="off"></label>
+        <label class="field">Overs per innings <input type="number" id="scOvers" min="1" max="50" value="20" inputmode="numeric"></label>
+        <label class="field">Players per side <input type="number" id="scPlayers" min="2" max="11" value="11" inputmode="numeric"></label>
+        <div class="row" style="margin-top:14px"><button id="scStartMatch">Start match</button></div>
+      </div>
+      <div class="card" id="scPastCard" hidden>
+        <h3>Past matches</h3>
+        <ul class="log" id="scPast"></ul>
+      </div>
+    </div>
+
+    <div id="scMatch" hidden>
+      <div class="board sc-board" aria-live="polite">
+        <div class="sc-title" id="scTitle"></div>
+        <div class="sc-score" id="scScore"></div>
+        <div class="board-note" id="scSub"></div>
+      </div>
+      <div id="scAction"></div>
+      <div id="scLive">
+        <div class="card sc-tight">
+          <table class="sc-table" id="scBat"></table>
+          <table class="sc-table" id="scBowl"></table>
+          <div class="sc-over" id="scOver" aria-label="This over"></div>
+        </div>
+        <div class="sc-pad" id="scPad">
+          <button data-r="0">0</button><button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button>
+          <button data-r="4">4</button><button data-r="5">5</button><button data-r="6">6</button><button class="sc-wkt" id="scWicket">Wicket</button>
+          <button class="sc-x" data-x="wd">Wide</button><button class="sc-x" data-x="nb">No ball</button><button class="sc-x" data-x="b">Bye</button><button class="sc-x" data-x="lb">Leg bye</button>
+          <button class="ghost" id="scUndo">Undo</button><button class="ghost" id="scSwap">Swap strike</button><button class="ghost sc-wide2" id="scBowler">Change bowler</button>
+        </div>
+        <p class="small" id="scArmed"></p>
+      </div>
+      <div class="row sc-links">
+        <button class="ghost" id="scShowCard">Scorecard</button>
+        <button class="ghost" id="scShare">Share score</button>
+        <button class="ghost" id="scEndInn">End innings</button>
+        <button class="ghost" id="scEndMatch">End match</button>
+      </div>
+      <div class="card" id="scCard" hidden></div>
+    </div>
+
+    <div id="scView" hidden>
+      <div class="row" style="margin-bottom:10px"><button class="ghost" id="scBack">Back</button><button class="ghost" id="scDelete">Delete this match</button></div>
+      <div class="card" id="scViewCard"></div>
+    </div>
+
+    <dialog id="scDlg">
+      <form method="dialog" id="scForm">
+        <h3 id="scDlgTitle"></h3>
+        <div id="scDlgBody"></div>
+        <div class="row sc-dlg-btns"><button value="cancel" class="ghost" formnovalidate>Cancel</button><button value="ok" id="scDlgOk">OK</button></div>
+      </form>
+    </dialog>
+  </section>
 </div>
 
 <script>
@@ -477,6 +583,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     $('stage').style.setProperty('--ar', (vw / vh).toFixed(4));
     $('empty').hidden = true;
     prevValid = false; running = true; lastMT = -1;
+    // let the camera settle (exposure, focus) before taking the drift reference
+    ref = null; avg = null; recent = []; refHoldUntil = performance.now() + 1500;
     sizeCanvas();
     scheduleFrame();
     updateBoard();
@@ -662,7 +770,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     updateAvg(prev);
     if (wk) {
       if (!ref) { if (performance.now() > refHoldUntil) captureRef(); }
-      else if (++frameNo % 10 === 0) checkDrift(avg);
+      else if (++frameNo % 10 === 0 && !sel && !gest) checkDrift(avg); // not while the user is adjusting
+
     }
 
 
@@ -1134,6 +1243,14 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           dctx.strokeStyle = '#F3C433'; dctx.lineWidth = 2.5 * px; dctx.setLineDash([6 * px, 4 * px]);
           const g = 6 * px;
           dctx.strokeRect(r.x0 - g, r.y0 - g, r.w + 2 * g, r.h + 2 * g);
+          // resize handle on top: drag up for taller, down for shorter
+          const hx = r.bx, hy = r.y0 - g - 14 * px;
+          dctx.setLineDash([]);
+          dctx.fillStyle = '#F3C433'; dctx.strokeStyle = '#fff'; dctx.lineWidth = 2 * px;
+          dctx.beginPath(); dctx.arc(hx, hy, 11 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
+          dctx.fillStyle = '#10180F';
+          dctx.beginPath(); dctx.moveTo(hx, hy - 7 * px); dctx.lineTo(hx - 4 * px, hy - 2 * px); dctx.lineTo(hx + 4 * px, hy - 2 * px); dctx.fill();
+          dctx.beginPath(); dctx.moveTo(hx, hy + 7 * px); dctx.lineTo(hx - 4 * px, hy + 2 * px); dctx.lineTo(hx + 4 * px, hy + 2 * px); dctx.fill();
           dctx.restore();
         }
       }
@@ -1269,8 +1386,15 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     c.sort((u, v) => u[1] - v[1]);
     return c.length ? c[0][0] : null;
   }
+  // screen position of the wicket's resize handle (matches the drawing: just above the selection outline)
+  function wkHandle() {
+    const r = wkRect(1, 1);
+    if (!r) return null;
+    const t = toScreen(r.bx, r.y0);
+    return { x: t.x, y: t.y - 6 - 14 };
+  }
   function selHint() {
-    if (sel === 'wk') hint('Wicket: drag to move, pinch to resize. Tap elsewhere when done.');
+    if (sel === 'wk') hint('Wicket: drag to move it. Drag the top handle up or down to resize. Tap elsewhere when done.');
     else if (sel === 'both') hint('Both wide lines: drag to move, pinch to open or close.');
     else if (sel) hint('Wide line: drag to move it. Tap elsewhere when done.');
     else hint(null);
@@ -1313,7 +1437,10 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       if (ptrs.size === 1) { modePtr = e.pointerId; const p = normPt(e); dragStart = p; dragNow = p; }
       return;
     }
-    if (ptrs.size === 1) { const s = stageXY(e); gest = { type: 'down', start: s, last: s }; }
+    if (ptrs.size === 1) {
+      const s = stageXY(e), hd = sel === 'wk' ? wkHandle() : null;
+      gest = { type: 'down', start: s, last: s, resize: !!hd && Math.hypot(s.x - hd.x, s.y - hd.y) < 26 };
+    }
     else if (ptrs.size === 2) {
       const p = pinchInfo();
       gest = { type: 'pinch', d0: p.d, dx0: p.dx, camZ0: S.camZoom, viewZ0: view.z, wides0: wides && { ...wides }, wk0: wk && { ...wk } };
@@ -1330,7 +1457,10 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (gest.type === 'drag') {
       const dx = s.x - gest.last.x, dy = s.y - gest.last.y;
       gest.last = s;
-      if (sel) moveSel(dx, dy);
+      if (gest.resize && wk) { // base stays on the ground; dragging up makes it taller
+        wk = { x: wk.x, y: wk.y, h: Math.max(0.01, wk.h - dy * GAIN / (view.z * stageEl.clientHeight)) };
+        gest.changed = true; gest.resized = true;
+      } else if (sel) moveSel(dx, dy);
       else if (view.z > 1) panView(dx, dy);
     }
   });
@@ -1344,7 +1474,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (!gest) return;
     if (gest.type === 'pinch' && ptrs.size) { gest.type = 'after'; return; } // ignore the finger left behind
     if (ptrs.size) return;
-    if (gest.type === 'down' && e.type !== 'pointercancel') { sel = hitTest(gest.start); selHint(); }
+    if (gest.type === 'down' && e.type !== 'pointercancel') { if (!gest.resize) { sel = hitTest(gest.start); selHint(); } }
+
     else finishEdit();
     gest = null;
   }
@@ -1399,6 +1530,372 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   updateBoard();
   requestAnimationFrame(drawLoop);
 
+})();
+</script>
+<script>
+// ---------- Scorer: a separate scoring mode (not connected to the camera tracker) ----------
+// A match is a list of events (innings starts, balls, bowler changes, strike swaps). The scoreboard is always
+// rebuilt by replaying them, so Undo is just "remove the last event".
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = 'wkt-score-v1';
+  const HOW = ['Bowled', 'Caught', 'LBW', 'Run out', 'Stumped', 'Hit wicket', 'Retired out', 'Other'];
+  const BOWLER_GETS = ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hit wicket'];
+  let db = { cur: null, past: [] }, armed = null, viewing = null, bowlerAskedAt = null;
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) db = { cur: o.cur || null, past: o.past || [] }; } catch (e) {}
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ov = balls => Math.floor(balls / 6) + (balls % 6 ? '.' + (balls % 6) : '');
+  const ovFull = balls => Math.floor(balls / 6) + '.' + (balls % 6);
+
+  // ---- tabs ----
+  function showTab(t) {
+    $('trackerView').hidden = t !== 'tracker';
+    $('scorerView').hidden = t !== 'scorer';
+    $('tabTracker').classList.toggle('on', t === 'tracker'); $('tabTracker').setAttribute('aria-pressed', t === 'tracker');
+    $('tabScorer').classList.toggle('on', t === 'scorer'); $('tabScorer').setAttribute('aria-pressed', t === 'scorer');
+    try { localStorage.setItem('wkt-tab', t); } catch (e) {}
+    if (t === 'scorer') render();
+  }
+  $('tabTracker').onclick = () => showTab('tracker');
+  $('tabScorer').onclick = () => showTab('scorer');
+
+  // ---- replaying a match ----
+  const mkBat = name => ({ name, r: 0, b: 0, f4: 0, f6: 0, out: null });
+  function bowlerIdx(inn, name) {
+    let i = inn.bowls.findIndex(b => b.name === name);
+    if (i < 0) { inn.bowls.push({ name, balls: 0, r: 0, w: 0, m: 0 }); i = inn.bowls.length - 1; }
+    return i;
+  }
+  function replay(m) {
+    const st = { inns: [], result: null };
+    for (const e of m.events) {
+      const inn = st.inns[st.inns.length - 1];
+      if (e.t === 'start') {
+        const ni = { bat: e.bat, runs: 0, wkts: 0, balls: 0, ext: { wd: 0, nb: 0, b: 0, lb: 0 }, bats: [mkBat(e.striker), mkBat(e.non)], s: 0, n: 1,
+          bowls: [], bw: 0, overRuns: 0, overLegal: 0, over: [], lastOver: [], fow: [], done: false, needBowler: false, lastBowler: null, closed: false };
+        ni.bw = bowlerIdx(ni, e.bowler);
+        st.inns.push(ni);
+        continue;
+      }
+      if (!inn || inn.done) continue;
+      if (e.t === 'bowler') { inn.bw = bowlerIdx(inn, e.name); inn.needBowler = false; }
+      else if (e.t === 'swap') { [inn.s, inn.n] = [inn.n, inn.s]; }
+      else if (e.t === 'end') { inn.done = true; inn.closed = true; }
+      else if (e.t === 'ball') ball(m, st, inn, e);
+    }
+    if (st.inns.length === 2 && st.inns[1].done) {
+      const a = st.inns[0], b = st.inns[1], ta = m.teams[a.bat], tb = m.teams[b.bat], left = m.players - 1 - b.wkts;
+      st.result = b.runs > a.runs ? tb + ' won by ' + left + ' wicket' + (left === 1 ? '' : 's')
+        : a.runs > b.runs ? ta + ' won by ' + (a.runs - b.runs) + ' run' + (a.runs - b.runs === 1 ? '' : 's') : 'Match tied';
+    }
+    if (m.ended && !st.result) st.result = 'Match ended early';
+    return st;
+  }
+  function ball(m, st, inn, e) {
+    const bat = inn.bats[inn.s], bowl = inn.bowls[inn.bw];
+    const legal = e.x !== 'wd' && e.x !== 'nb';
+    let team = e.r, conceded = 0, sym, cls = '';
+    if (e.x === 'wd') { team = 1 + e.r; inn.ext.wd += 1 + e.r; conceded = 1 + e.r; sym = (e.r ? e.r + 1 : '') + 'wd'; cls = 'x'; }
+    else if (e.x === 'nb') {
+      team = 1 + e.r; inn.ext.nb += 1; conceded = 1 + e.r; sym = 'nb' + (e.r ? '+' + e.r : ''); cls = 'x';
+      if (bat) { bat.r += e.r; bat.b++; if (e.r === 4) bat.f4++; if (e.r === 6) bat.f6++; }
+    } else if (e.x === 'b' || e.x === 'lb') { inn.ext[e.x] += e.r; sym = e.r + e.x; cls = 'x'; if (bat) bat.b++; }
+    else {
+      conceded = e.r; sym = e.r === 0 ? '•' : String(e.r); cls = e.r === 4 ? 'b4' : e.r === 6 ? 'b6' : '';
+      if (bat) { bat.r += e.r; bat.b++; if (e.r === 4) bat.f4++; if (e.r === 6) bat.f6++; }
+    }
+    inn.runs += team;
+    if (bowl) { bowl.r += conceded; if (legal) bowl.balls++; }
+    inn.overRuns += conceded;
+    if (legal) { inn.balls++; inn.overLegal++; }
+    if (e.r % 2 === 1) [inn.s, inn.n] = [inn.n, inn.s]; // ran an odd number: batters changed ends
+    if (e.w) {
+      sym = (sym === '•' ? '' : sym + ' ') + 'W'; cls = 'w';
+      inn.wkts++;
+      const outIdx = inn.n >= 0 && inn.bats[inn.n].name === e.w.name ? inn.n : inn.s;
+      const out = inn.bats[outIdx];
+      if (out) out.out = e.w.how === 'Caught' && e.w.fielder ? 'c ' + e.w.fielder + ' b ' + (bowl ? bowl.name : '')
+        : BOWLER_GETS.includes(e.w.how) && bowl ? (e.w.how === 'Bowled' ? 'b ' : e.w.how === 'LBW' ? 'lbw b ' : e.w.how === 'Stumped' ? 'st b ' : e.w.how === 'Hit wicket' ? 'hit wkt b ' : 'c b ') + bowl.name
+        : e.w.how.toLowerCase();
+      if (bowl && BOWLER_GETS.includes(e.w.how)) bowl.w++;
+      inn.fow.push({ score: inn.runs, wkt: inn.wkts, name: out ? out.name : '', over: ovFull(inn.balls) });
+      if (e.w.next) { inn.bats.push(mkBat(e.w.next)); const ni = inn.bats.length - 1; if (outIdx === inn.s) inn.s = ni; else inn.n = ni; }
+      else if (outIdx === inn.s) inn.s = -1; else inn.n = -1;
+    }
+    inn.over.push({ sym, cls });
+    if (legal && inn.overLegal === 6) { // end of the over
+      if (bowl && inn.overRuns === 0) bowl.m++;
+      [inn.s, inn.n] = [inn.n, inn.s];
+      inn.overLegal = 0; inn.overRuns = 0; inn.lastOver = inn.over; inn.over = [];
+      inn.lastBowler = bowl ? bowl.name : null; inn.needBowler = true;
+    }
+    const idx = st.inns.indexOf(inn);
+    if (inn.wkts >= m.players - 1 || inn.balls >= m.overs * 6 || (idx === 1 && inn.runs > st.inns[0].runs)) { inn.done = true; inn.needBowler = false; }
+  }
+
+  // ---- names already used, for suggestions ----
+  function namesFor(m, team, kind) {
+    const out = new Set();
+    let bat = null;
+    for (const e of m.events) {
+      if (e.t === 'start') bat = e.bat;
+      const batting = bat === team, bowling = bat !== null && bat !== team;
+      if (kind === 'bat' && batting) { if (e.t === 'start') { out.add(e.striker); out.add(e.non); } if (e.w && e.w.next) out.add(e.w.next); }
+      if (kind === 'bowl' && bowling) { if (e.t === 'start') out.add(e.bowler); if (e.t === 'bowler') out.add(e.name); }
+      if (kind === 'field' && bowling) { if (e.t === 'start') out.add(e.bowler); if (e.t === 'bowler') out.add(e.name); }
+    }
+    return [...out].filter(Boolean);
+  }
+
+  // ---- a small form dialog: resolves with the values, or null if cancelled ----
+  let dlgSeq = 0;
+  function ask(title, fields) {
+    return new Promise(resolve => {
+      const dlg = $('scDlg'), body = $('scDlgBody');
+      $('scDlgTitle').textContent = title;
+      body.innerHTML = '';
+      fields.forEach((f, i) => {
+        const lab = document.createElement('label'); lab.className = 'field'; lab.textContent = f.label + ' ';
+        let el;
+        if (f.options) {
+          el = document.createElement('select');
+          f.options.forEach(o => { const op = document.createElement('option'); op.value = o.value ?? o; op.textContent = o.label ?? o; el.appendChild(op); });
+          if (f.value != null) el.value = f.value;
+        } else {
+          el = document.createElement('input'); el.type = 'text'; el.maxLength = 30; el.autocomplete = 'off';
+          if (f.value) el.value = f.value;
+          if (f.required) el.required = true;
+          if (f.list && f.list.length) {
+            const dl = document.createElement('datalist'); dl.id = 'scList' + (++dlgSeq) + '_' + i;
+            f.list.forEach(n => { const op = document.createElement('option'); op.value = n; dl.appendChild(op); });
+            body.appendChild(dl); el.setAttribute('list', dl.id);
+          }
+        }
+        el.name = f.id;
+        if (f.onchange) el.addEventListener('change', () => f.onchange(el.value, body));
+        lab.appendChild(el); lab.dataset.field = f.id;
+        if (f.hidden) lab.hidden = true;
+        body.appendChild(lab);
+      });
+      const done = () => {
+        dlg.removeEventListener('close', done);
+        if (dlg.returnValue !== 'ok') return resolve(null);
+        const v = {};
+        fields.forEach(f => { const el = body.querySelector('[name="' + f.id + '"]'); v[f.id] = (el.value || '').trim(); });
+        resolve(v);
+      };
+      dlg.addEventListener('close', done);
+      dlg.returnValue = '';
+      dlg.showModal();
+      const first = body.querySelector('input,select'); if (first && first.tagName === 'INPUT') first.focus();
+    });
+  }
+
+  // ---- actions ----
+  const cur = () => db.cur;
+  function push(e) { cur().events.push(e); persist(); render(); }
+  function state() { return replay(cur()); }
+  function lastInn(st) { return st.inns[st.inns.length - 1]; }
+
+  $('scStartMatch').onclick = () => {
+    const a = $('scTeamA').value.trim() || 'Team A', b = $('scTeamB').value.trim() || 'Team B';
+    const overs = Math.max(1, Math.min(50, parseInt($('scOvers').value, 10) || 20));
+    const players = Math.max(2, Math.min(11, parseInt($('scPlayers').value, 10) || 11));
+    db.cur = { id: Date.now(), created: new Date().toISOString(), teams: [a, b], overs, players, events: [] };
+    persist(); render(); startInnings();
+  };
+  async function startInnings() {
+    const m = cur(), st = state(), bat = st.inns.length === 0 ? 0 : 1 - st.inns[0].bat;
+    const v = await ask((st.inns.length ? '2nd' : '1st') + ' innings: ' + m.teams[bat] + ' batting', [
+      { id: 'striker', label: 'Opening batter (on strike)', required: true, list: namesFor(m, bat, 'bat') },
+      { id: 'non', label: 'Other opening batter', required: true, list: namesFor(m, bat, 'bat') },
+      { id: 'bowler', label: 'Opening bowler (' + m.teams[1 - bat] + ')', required: true, list: namesFor(m, 1 - bat, 'bowl') }
+    ]);
+    if (!v) return;
+    push({ t: 'start', bat, striker: v.striker || 'Batter 1', non: v.non || 'Batter 2', bowler: v.bowler || 'Bowler 1' });
+  }
+  async function chooseBowler(title) {
+    const m = cur(), st = state(), inn = lastInn(st);
+    const prev = inn.lastBowler;
+    const v = await ask(title, [{ id: 'name', label: 'Bowler (' + m.teams[1 - inn.bat] + ')', required: true, list: namesFor(m, 1 - inn.bat, 'bowl').filter(n => n !== prev) }]);
+    if (!v || !v.name) return;
+    if (v.name === prev && !confirm(v.name + ' bowled the last over. Bowl again?')) return;
+    push({ t: 'bowler', name: v.name });
+  }
+  function runs(r) {
+    const st = state(), inn = lastInn(st);
+    if (!inn || inn.done || inn.needBowler) return;
+    push({ t: 'ball', r, x: armed });
+    armed = null; render();
+  }
+  async function wicket() {
+    const m = cur(), st = state(), inn = lastInn(st);
+    if (!inn || inn.done || inn.needBowler) return;
+    const s = inn.bats[inn.s], n = inn.n >= 0 ? inn.bats[inn.n] : null;
+    const last = inn.wkts + 1 >= m.players - 1;
+    const v = await ask('Wicket' + (armed ? ' (' + { wd: 'wide', nb: 'no ball', b: 'bye', lb: 'leg bye' }[armed] + ')' : ''), [
+      { id: 'how', label: 'How out', options: HOW, value: 'Bowled', onchange: (val, body) => {
+        body.querySelector('[data-field="who"]').hidden = val !== 'Run out';
+        body.querySelector('[data-field="ran"]').hidden = val !== 'Run out';
+        body.querySelector('[data-field="fielder"]').hidden = val !== 'Caught';
+      } },
+      { id: 'fielder', label: 'Caught by (optional)', list: namesFor(m, 1 - inn.bat, 'field'), hidden: true },
+      { id: 'who', label: 'Who is out', options: [s && { value: s.name, label: s.name + ' (striker)' }, n && { value: n.name, label: n.name }].filter(Boolean), value: s && s.name, hidden: true },
+      { id: 'ran', label: 'Runs completed', options: ['0', '1', '2', '3'], value: '0', hidden: true },
+      ...(last ? [] : [{ id: 'next', label: 'New batter', required: true, list: namesFor(m, inn.bat, 'bat').filter(x => !inn.bats.some(b => b.name === x)) }])
+    ]);
+    if (!v) return;
+    const runOut = v.how === 'Run out';
+    push({ t: 'ball', r: runOut ? parseInt(v.ran, 10) || 0 : 0, x: armed, w: { how: v.how, name: runOut ? v.who : s.name, fielder: v.fielder || null, next: last ? null : (v.next || 'Batter ' + (inn.bats.length + 1)) } });
+    armed = null; render();
+  }
+  function undo() {
+    const m = cur();
+    if (!m || !m.events.length) return;
+    m.events.pop(); persist(); armed = null; bowlerAskedAt = null; render();
+  }
+  function finishMatch() {
+    const m = cur(), st = replay(m);
+    db.past.unshift({ ...m, result: st.result || 'Match ended early', finished: new Date().toISOString() });
+    db.past = db.past.slice(0, 30);
+    db.cur = null; persist(); render();
+  }
+
+  $('scPad').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.r != null) runs(+b.dataset.r);
+    else if (b.dataset.x) { armed = armed === b.dataset.x ? null : b.dataset.x; render(); }
+  });
+  $('scWicket').onclick = e => { e.stopPropagation(); wicket(); };
+  $('scUndo').onclick = e => { e.stopPropagation(); undo(); };
+  $('scSwap').onclick = e => { e.stopPropagation(); push({ t: 'swap' }); };
+  $('scBowler').onclick = e => { e.stopPropagation(); chooseBowler('Change bowler'); };
+  $('scShowCard').onclick = () => { const c = $('scCard'); c.hidden = !c.hidden; $('scShowCard').textContent = c.hidden ? 'Scorecard' : 'Hide scorecard'; render(); };
+  $('scEndInn').onclick = () => { if (confirm('End this innings now?')) push({ t: 'end' }); };
+  $('scEndMatch').onclick = () => {
+    const st = state();
+    if (st.result || confirm('End this match now and save it to past matches?')) { if (!st.result) { cur().ended = true; } finishMatch(); }
+  };
+  $('scShare').onclick = async () => {
+    const m = viewing || cur(); if (!m) return;
+    const text = summaryText(m, replay(m));
+    try { if (navigator.share) { await navigator.share({ title: m.teams.join(' v '), text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); alert('Score copied. Paste it into a message.'); } catch (e) { prompt('Copy the score:', text); }
+  };
+  $('scBack').onclick = () => { viewing = null; render(); };
+  $('scDelete').onclick = () => { if (viewing && confirm('Delete this match?')) { db.past = db.past.filter(p => p.id !== viewing.id); viewing = null; persist(); render(); } };
+
+  // ---- rendering ----
+  function inningsLine(m, inn) { return m.teams[inn.bat] + ' ' + inn.runs + '/' + inn.wkts + ' (' + ov(inn.balls) + ' ov)'; }
+  function summaryText(m, st) {
+    const lines = [m.teams[0] + ' v ' + m.teams[1] + ' (' + m.overs + ' overs)'];
+    st.inns.forEach(inn => {
+      lines.push('', inningsLine(m, inn));
+      inn.bats.forEach(b => lines.push('  ' + b.name + ' ' + b.r + ' (' + b.b + ')' + (b.out ? ' ' + b.out : ' not out')));
+      lines.push('  Extras ' + (inn.ext.wd + inn.ext.nb + inn.ext.b + inn.ext.lb));
+      inn.bowls.forEach(b => lines.push('  ' + b.name + ' ' + ov(b.balls) + '-' + b.m + '-' + b.r + '-' + b.w));
+    });
+    if (st.result) lines.push('', st.result);
+    return lines.join('\n');
+  }
+  function cardHTML(m, st) {
+    let h = '';
+    st.inns.forEach((inn, i) => {
+      const ext = inn.ext.wd + inn.ext.nb + inn.ext.b + inn.ext.lb;
+      h += '<h4>' + esc(inningsLine(m, inn)) + '</h4><table class="sc-table"><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>';
+      inn.bats.forEach((b, k) => {
+        const atCrease = !b.out && (k === inn.s || k === inn.n) && !inn.done;
+        h += '<tr><td>' + esc(b.name) + (atCrease && k === inn.s ? ' *' : '') + '</td><td>' + b.r + '</td><td>' + b.b + '</td><td>' + b.f4 + '</td><td>' + b.f6 + '</td><td>' + (b.b ? (b.r / b.b * 100).toFixed(0) : '–') + '</td></tr>';
+        h += '<tr><td class="how" colspan="6">' + esc(b.out || (atCrease ? 'batting' : 'not out')) + '</td></tr>';
+      });
+      h += '</table><p class="small">Extras ' + ext + ' (wd ' + inn.ext.wd + ', nb ' + inn.ext.nb + ', b ' + inn.ext.b + ', lb ' + inn.ext.lb + ')</p>';
+      if (inn.fow.length) h += '<p class="small">Fall of wickets: ' + inn.fow.map(f => f.score + '-' + f.wkt + ' (' + esc(f.name) + ', ' + f.over + ' ov)').join(', ') + '</p>';
+      h += '<table class="sc-table"><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>';
+      inn.bowls.forEach(b => { h += '<tr><td>' + esc(b.name) + '</td><td>' + ov(b.balls) + '</td><td>' + b.m + '</td><td>' + b.r + '</td><td>' + b.w + '</td><td>' + (b.balls ? (b.r / b.balls * 6).toFixed(1) : '–') + '</td></tr>'; });
+      h += '</table>';
+    });
+    if (st.result) h += '<h4>' + esc(st.result) + '</h4>';
+    return '<div class="sc-card">' + (h || '<p class="small">No balls bowled yet.</p>') + '</div>';
+  }
+  function banner(html, btnLabel, fn) {
+    const a = $('scAction');
+    a.innerHTML = '<div class="sc-banner"><p>' + html + '</p>' + (btnLabel ? '<button id="scActBtn">' + esc(btnLabel) + '</button>' : '') + '</div>';
+    if (btnLabel) $('scActBtn').onclick = fn;
+  }
+  function render() {
+    if ($('scorerView').hidden) return;
+    $('scView').hidden = !viewing; $('scSetup').hidden = !!viewing || !!db.cur; $('scMatch').hidden = !!viewing || !db.cur;
+    if (viewing) { $('scViewCard').innerHTML = '<h3>' + esc(viewing.teams.join(' v ')) + '</h3>' + cardHTML(viewing, replay(viewing)); return; }
+    if (!db.cur) {
+      const ul = $('scPast'); ul.innerHTML = ''; $('scPastCard').hidden = !db.past.length;
+      db.past.forEach(p => {
+        const li = document.createElement('li'); li.tabIndex = 0;
+        const left = document.createElement('div');
+        const nm = document.createElement('div'); nm.textContent = p.teams.join(' v ');
+        const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = (p.result || '') + ' · ' + new Date(p.created).toLocaleDateString();
+        left.append(nm, meta); li.appendChild(left);
+        li.onclick = () => { viewing = p; render(); };
+        li.onkeydown = e => { if (e.key === 'Enter') { viewing = p; render(); } };
+        ul.appendChild(li);
+      });
+      return;
+    }
+    const m = cur(), st = replay(m), inn = lastInn(st);
+    $('scTitle').textContent = m.teams[0] + ' v ' + m.teams[1] + ' · ' + m.overs + ' overs';
+    $('scCard').innerHTML = cardHTML(m, st);
+    $('scAction').innerHTML = '';
+    if (!inn) {
+      $('scScore').textContent = 'Not started'; $('scSub').textContent = '';
+      $('scLive').hidden = true; banner('Pick the opening batters and bowler.', 'Start 1st innings', startInnings);
+      return;
+    }
+    $('scScore').innerHTML = esc(inn.runs + '/' + inn.wkts) + '<small>' + esc(ov(inn.balls) + ' / ' + m.overs + ' ov') + '</small>';
+    const crr = inn.balls ? (inn.runs / inn.balls * 6).toFixed(2) : '0.00';
+    let sub = m.teams[inn.bat] + ' batting · Run rate ' + crr;
+    if (st.inns.length === 2 && !st.result) {
+      const need = st.inns[0].runs + 1 - inn.runs, left = m.overs * 6 - inn.balls;
+      sub = m.teams[inn.bat] + ' need ' + need + ' from ' + left + ' ball' + (left === 1 ? '' : 's') + (left ? ' · Required rate ' + (need / left * 6).toFixed(2) : '') + ' · Target ' + (st.inns[0].runs + 1);
+    }
+    $('scSub').textContent = sub;
+    // batters and bowler
+    const bt = [inn.s, inn.n].filter(k => k >= 0).map(k => inn.bats[k]);
+    $('scBat').innerHTML = '<tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th></tr>' +
+      bt.map(b => '<tr><td>' + esc(b.name) + (b === inn.bats[inn.s] ? ' *' : '') + '</td><td>' + b.r + '</td><td>' + b.b + '</td><td>' + b.f4 + '</td><td>' + b.f6 + '</td></tr>').join('');
+    const bw = inn.bowls[inn.bw];
+    $('scBowl').innerHTML = '<tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th></tr>' +
+      (bw ? '<tr><td>' + esc(bw.name) + '</td><td>' + ov(bw.balls) + '</td><td>' + bw.m + '</td><td>' + bw.r + '</td><td>' + bw.w + '</td></tr>' : '');
+    const showOver = inn.over.length ? inn.over : inn.lastOver;
+    $('scOver').innerHTML = (inn.over.length ? '' : (showOver.length ? '<span title="last over" style="background:none">Last over:</span>' : '')) +
+      showOver.map(o => '<span class="' + o.cls + '">' + esc(o.sym) + '</span>').join('');
+    // pad state
+    const busy = inn.done || inn.needBowler;
+    $('scPad').querySelectorAll('button').forEach(b => { b.disabled = busy && b.id !== 'scUndo'; });
+    $('scPad').querySelectorAll('.sc-x').forEach(b => b.classList.toggle('on', armed === b.dataset.x));
+    $('scArmed').textContent = armed ? { wd: 'Wide: tap the runs they ran (0 if none). 1 wide run is added.', nb: 'No ball: tap the runs off the bat (0 if none). 1 no-ball run is added.', b: 'Byes: tap how many they ran.', lb: 'Leg byes: tap how many they ran.' }[armed] : '';
+    $('scLive').hidden = false;
+    $('scEndInn').hidden = inn.done; $('scEndMatch').hidden = !!st.result;
+
+    // what happens next
+    if (st.result) { banner('<b>' + esc(st.result) + '</b>', 'Finish and save match', finishMatch); $('scLive').hidden = true; $('scCard').hidden = false; }
+    else if (inn.done && st.inns.length === 1) {
+      banner('<b>Innings over:</b> ' + esc(inningsLine(m, inn)) + '<br>' + esc(m.teams[1 - inn.bat]) + ' need ' + (inn.runs + 1) + ' to win', 'Start 2nd innings', startInnings);
+      $('scLive').hidden = true;
+    } else if (inn.needBowler) {
+      banner('End of over ' + (inn.balls / 6) + '. Who bowls next?', 'Choose bowler', () => chooseBowler('Next over'));
+      if (bowlerAskedAt !== inn.balls) {
+        bowlerAskedAt = inn.balls;
+        // ask straight away, unless something changed in the meantime (e.g. the last ball was undone)
+        setTimeout(() => { const i = db.cur && lastInn(state()); if (i && i.needBowler && !i.done && !$('scDlg').open) chooseBowler('Next over'); }, 50);
+      }
+
+    }
+  }
+
+  let tab = 'tracker';
+  try { tab = localStorage.getItem('wkt-tab') || 'tracker'; } catch (e) {}
+  showTab(tab === 'scorer' ? 'scorer' : 'tracker');
+  window.__score = () => ({ db, st: db.cur ? replay(db.cur) : null }); // for testing
 })();
 </script>
 </body>
