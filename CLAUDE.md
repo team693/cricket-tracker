@@ -9,17 +9,21 @@ First trials planned at PA nets, then a pitch to Jersey Cricket.
 - Camera needs https (Netlify provides it). It does not work inside Claude artifact previews.
 
 ## How it works
-- Camera setup: phone fixed 2–4 m behind the stumps, about stump height, looking down the pitch, 1× lens. The phone must not move after setup.
-- User drags a virtual wicket from the base of the middle stump to the top of the stumps. Stumps are 0.711 m high and 0.2286 m wide.
+- Camera setup: phone fixed 2–4 m behind the stumps, about stump height, looking down the pitch, 1× lens. Small wobbles are tolerated; if the phone is knocked, the wicket must be redrawn.
+- Setup is kept deliberately simple: tools sit directly under the picture. Draw wicket = drag a box around the stumps with a finger (box height sets the wicket, it sits on the box's bottom edge). Wide markers = tap the wide line on each side. Stumps are 0.711 m high and 0.2286 m wide.
+- Optional extras live in Detection tuning: Learn ball colour (tap a still ball to set brightness/colour thresholds and see its distance) and Detection zone.
 - Distance to the stumps = focal length (px) × 0.711 / stump height (px). The default focal length assumes a 65° horizontal field of view on the long side. Entering a tape-measured distance calibrates the focal length (`kFocal`).
-- Ball detection runs on frames downscaled to 640 px on the long side. A candidate is a pixel that is both white (bright, low colour spread) and moving (frame difference). Each candidate is then grown over the white mask to measure the full ball. Regions over the max size are rejected as shirts, pads or sightscreens.
+- Ball detection runs on frames downscaled to 640 px on the long side. A candidate is a pixel that is both white (bright, low colour spread) and moving. Each candidate is then grown over the white mask to measure the full ball. Regions over the max size are rejected as shirts, pads or sightscreens.
+- Shake tolerance: each frame the global camera shift (±6 px) is estimated against the previous frame, and a white pixel only counts as moving if it differs from all 3×3 neighbours of the shifted previous frame. Frames where over 40% of the picture changes are skipped (big jolt or light change).
 - Tracking uses nearest-neighbour matching with constant-velocity prediction and a size-ratio check.
 - Ball distance from camera = focal × 0.072 / ball diameter (px).
+- Only balls coming towards the camera are kept: the ball must grow by ≥15% over the track, and its projected path must head towards the stumps (within ±8 wicket widths) or, with wide markers set, within half a marker-gap outside them. Everything else is silently ignored.
+- Wides: the path is solved where it crosses the popping crease (stumps distance + 1.22 m); outside the wide markers there = "Wide".
 - Judging: the last ≤10 points are back-projected to 3D, a straight line is fitted against time, and the path is solved for the moment it reaches the stumps' distance. That point is tested against the stump rectangle, with the ball radius as the umpire's-call margin. If the ball was stopped short (pad/bat), the path is projected on.
-- Settings, wicket and zone are saved in localStorage key `wkt-v2`.
+- Settings, wicket, wide markers and zone are saved in localStorage key `wkt-v2`.
 
 ## Status
-- Tested only on a synthetic camera feed (headless Chrome with a fake y4m camera): distance 3.3 m vs 3.31 m true, and correct hitting/missing calls. Not yet tested on real footage.
+- Tested only on synthetic camera feeds (headless Chrome with a fake y4m camera): correct distances, hitting/missing/wide calls with ±3 px random camera shake on a textured background, and balls thrown across the picture or moving away are ignored. Not yet tested on real footage.
 - Expected real-world issues: white pads, shoes and clothing as false positives; small ball size at distance; dusk or floodlight lighting; camera shake.
 
 ## Working conventions

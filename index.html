@@ -53,7 +53,7 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
 .empty h2{font:700 2rem/1.05 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 6px}
 .empty p{margin:0 0 16px;max-width:40ch;color:#C5D6CB}
 .empty .row{justify-content:center}
-.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,20,14,.85);color:#fff;padding:6px 12px;border-radius:999px;font-size:.9rem;white-space:nowrap;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,20,14,.85);color:#fff;padding:6px 12px;border-radius:16px;font-size:.9rem;line-height:1.3;text-align:center;width:max-content;max-width:calc(100% - 20px);pointer-events:none}
 .verdict-pop{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 18px;border-radius:8px;font:700 1.8rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:#0B1510;pointer-events:none}
 
 .filebar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px}
@@ -62,7 +62,7 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
 .panel{display:flex;flex-direction:column;gap:14px}
 .board{background:var(--board);color:#fff;border-radius:12px;padding:16px 18px 14px}
 .board-verdict{font:700 3.6rem/0.95 "Barlow Condensed","Arial Narrow",sans-serif;color:var(--board-ink)}
-.board-verdict.hitting{color:var(--hit)} .board-verdict.missing{color:var(--miss)} .board-verdict.clipping{color:var(--call)}
+.board-verdict.hitting{color:var(--hit)} .board-verdict.missing{color:var(--miss)} .board-verdict.clipping{color:var(--call)} .board-verdict.wide{color:#FF9F1C}
 .board-note{color:var(--board-dim);font-size:.9rem;margin-top:6px;min-height:1.4em}
 .board-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14)}
 .board-stats b{display:block;font:600 1.6rem/1 "Barlow Condensed","Arial Narrow",sans-serif;font-variant-numeric:tabular-nums}
@@ -92,10 +92,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 .log li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--soft);cursor:pointer;border-radius:6px}
 .log li:hover,.log li.sel{background:var(--soft)}
 .log .v{font:600 1.15rem/1 "Barlow Condensed","Arial Narrow",sans-serif}
-.log .v.hitting{color:#1E9E58} .log .v.missing{color:#D63B3B} .log .v.clipping{color:#B88A00}
+.log .v.hitting{color:#1E9E58} .log .v.missing{color:#D63B3B} .log .v.clipping{color:#B88A00} .log .v.wide{color:#C46A00}
 .log .meta{font-size:.82rem;color:var(--muted)}
 .log .empty-log{cursor:default;color:var(--muted);font-size:.9rem}
 .log .empty-log:hover{background:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tools button{flex:1 1 0;min-width:0;padding:14px 10px;font-size:1rem}
+.tools-help{margin-top:6px}
 .err{color:var(--warn);font-size:.9rem;margin-top:8px}
 .err:empty{display:none}
 </style>
@@ -134,6 +137,12 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           <option value="0.25">0.25×</option>
         </select>
       </div>
+      <div class="tools">
+        <button id="wkBtn">Draw wicket</button>
+        <button class="ghost" id="wideBtn">Wide markers</button>
+        <button class="ghost" id="resetBtn">Clear</button>
+      </div>
+      <p class="small tools-help">Draw a box around the stumps with your finger. Then tap Wide markers and tap the wide line on each side.</p>
       <p class="err" id="err"></p>
     </section>
 
@@ -155,23 +164,16 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           <button class="ghost" id="fileBtn">Open video</button>
           <input type="file" id="file" accept="video/*" hidden>
         </div>
-        <p class="small">Use the normal 1× lens, not ultra-wide. The phone must not move once the wicket is placed.</p>
+        <p class="small">Use the normal 1× lens, not ultra-wide. Small wobbles are fine. If the phone gets knocked, draw the wicket again.</p>
       </div>
 
       <div class="card">
-        <h3>Wicket</h3>
+        <h3>Setup</h3>
         <ol class="steps">
-          <li>Tap Set up.</li>
-          <li>On the picture, tap the bottom of the middle stump, then the top of the stumps.</li>
-          <li>Hold a ball still in view and tap it. The tracker learns its colour and shows how far away it is.</li>
-          <li>Bowl. Drag the virtual wicket if it needs fine-tuning.</li>
+          <li>Tap Draw wicket and draw a box around the stumps with your finger, from the bails down to the ground.</li>
+          <li>Optional: tap Wide markers, then tap the wide line on each side of the pitch.</li>
+          <li>Bowl. Only balls coming towards the stumps are judged.</li>
         </ol>
-        <div class="row" style="margin-top:12px">
-          <button id="wkBtn">Set up</button>
-          <button class="ghost" id="ballBtn">Tap ball</button>
-          <button class="ghost" id="zoneBtn">Detection zone</button>
-          <button class="ghost" id="resetBtn">Reset</button>
-        </div>
         <label class="field">Measured distance to stumps (m)
           <input type="number" id="measured" min="0.5" max="30" step="0.05" placeholder="optional">
         </label>
@@ -190,6 +192,11 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           <input type="range" id="s_minA" min="1" max="40" step="1"></div>
         <div class="slider"><div class="top"><span>Largest ball size</span><output id="o_maxA"></output></div>
           <input type="range" id="s_maxA" min="40" max="3000" step="20"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="ghost" id="ballBtn">Learn ball colour</button>
+          <button class="ghost" id="zoneBtn">Detection zone</button>
+        </div>
+        <p class="small">Learn ball colour: hold a ball still in view, tap the button, then tap the ball.</p>
         <label class="check"><input type="checkbox" id="showMask"> Show what the tracker sees</label>
         <p class="small">Pink is what it thinks is a moving white ball. If it misses the ball, lower brightness or movement. If it grabs shirts and pads, draw a detection zone or raise movement.</p>
       </details>
@@ -216,22 +223,23 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   // Real-world sizes in metres
   const BALL = 0.072, STUMP_H = 0.711, STUMP_W = 0.2286;
   const DEFAULT_K = 0.5 / Math.tan(65 / 2 * Math.PI / 180); // focal length / long side, typical 1x phone lens
-  const PROC_W = 640, MAX_MISS = 3, MIN_PTS = 5, MAX_TRACKS = 12;
+  const PROC_W = 640, MAX_MISS = 3, MIN_PTS = 5, MAX_TRACKS = 12, SHAKE_R = 6;
+  const CREASE = 1.22; // popping crease is 1.22 m in front of the stumps
 
   let PW = PROC_W, PH = 360;
-  let prev, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
+  let prev, cur, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
   let stream = null, fileURL = null, running = false, sourceType = null, rvfc = null;
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
   let mode = null, dragStart = null, dragNow = null, moveOff = null;
-  let tapBase = null, setupFlow = false, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
-  let zone = null, wk = null, kFocal = null;
+  let wideTap = null, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
+  let zone = null, wk = null, kFocal = null, wides = null;
   const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false };
 
   // ---------- persistence ----------
-  function save() { try { localStorage.setItem('wkt-v2', JSON.stringify({ S, zone, wk, kFocal })); } catch (e) {} }
+  function save() { try { localStorage.setItem('wkt-v2', JSON.stringify({ S, zone, wk, kFocal, wides })); } catch (e) {} }
   try {
     const o = JSON.parse(localStorage.getItem('wkt-v2') || 'null');
-    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; kFocal = o.kFocal || null; }
+    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; kFocal = o.kFocal || null; wides = o.wides || null; }
   } catch (e) {}
   S.showMask = false;
 
@@ -261,10 +269,11 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   $('fileBtn').onclick = pick; $('fileBtn2').onclick = pick;
   $('camBtn').onclick = startCamera; $('camBtn2').onclick = startCamera;
   $('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
-  $('wkBtn').onclick = () => { setupFlow = mode !== 'wicket'; setMode(mode === 'wicket' ? null : 'wicket'); };
-  $('ballBtn').onclick = () => { setupFlow = false; setMode(mode === 'ball' ? null : 'ball'); };
+  $('wkBtn').onclick = () => setMode(mode === 'wicket' ? null : 'wicket');
+  $('wideBtn').onclick = () => setMode(mode === 'wide' ? null : 'wide');
+  $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
-  $('resetBtn').onclick = () => { zone = null; wk = null; kFocal = null; ballMark = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and zone cleared'); };
+  $('resetBtn').onclick = () => { zone = null; wk = null; wides = null; kFocal = null; ballMark = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
   $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
   $('measured').addEventListener('change', () => {
     const v = parseFloat($('measured').value);
@@ -289,15 +298,16 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   function flash(t, ms) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, ms || 1800); }
   function setError(t) { $('err').textContent = t || ''; }
   function setMode(m) {
-    mode = m; tapBase = null;
-    if (m !== 'wicket' && m !== 'ball') setupFlow = false;
+    mode = m; wideTap = null;
     $('wkBtn').classList.toggle('on', m === 'wicket');
+    $('wideBtn').classList.toggle('on', m === 'wide');
     $('ballBtn').classList.toggle('on', m === 'ball');
     $('zoneBtn').classList.toggle('on', m === 'zone');
     $('stage').classList.toggle('picking', !!m);
     if (m && !running) setError('Start the camera or open a video first.');
-    if (m === 'wicket') hint('Tap the bottom of the middle stump');
-    else if (m === 'ball') hint(setupFlow ? 'Hold a ball still and tap it (tap Tap ball to skip)' : 'Hold a ball still and tap it');
+    if (m === 'wicket') hint('Draw a box around the stumps');
+    else if (m === 'wide') hint('Tap the wide line on one side');
+    else if (m === 'ball') hint('Hold a ball still and tap it');
     else if (m === 'zone') hint('Drag a box over the area the ball travels through');
     else hint(null);
   }
@@ -365,7 +375,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     else { PH = PROC_W; PW = Math.round(PROC_W * vw / vh); }
     proc.width = PW; proc.height = PH; maskC.width = PW; maskC.height = PH;
     const n = PW * PH;
-    prev = new Uint8Array(n); white = new Uint8Array(n); mask = new Uint8Array(n);
+    prev = new Uint8Array(n); cur = new Uint8Array(n); white = new Uint8Array(n); mask = new Uint8Array(n);
     labels = new Int32Array(n); stack = new Int32Array(n); vis = new Int32Array(n); stamp = 1;
     maskImg = mctx.createImageData(PW, PH);
     $('stage').style.setProperty('--ar', (vw / vh).toFixed(4));
@@ -401,36 +411,69 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     return [Math.floor(zone.x0 * PW), Math.floor(zone.y0 * PH), Math.ceil(zone.x1 * PW) - 1, Math.ceil(zone.y1 * PH) - 1];
   }
 
+  // How far the whole picture moved since the last frame (camera wobble), in processing pixels.
+  // Returns {dx, dy} such that cur(x, y) matches prev(x - dx, y - dy).
+  function estimateShift(cur, old) {
+    const R = SHAKE_R, st = 6;
+    let best = Infinity, bdx = 0, bdy = 0;
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        let sum = 0;
+        for (let y = R; y < PH - R; y += st) {
+          const row = y * PW, orow = (y - dy) * PW - dx;
+          for (let x = R; x < PW - R; x += st) { const e = cur[row + x] - old[orow + x]; sum += e < 0 ? -e : e; }
+        }
+        if (dx || dy) sum *= 1.03; // prefer "no movement" unless a shift is clearly better
+        if (sum < best) { best = sum; bdx = dx; bdy = dy; }
+      }
+    }
+    return { dx: bdx, dy: bdy };
+  }
+
   function processFrame(t) {
     pctx.drawImage(video, 0, 0, PW, PH);
     const d = pctx.getImageData(0, 0, PW, PH).data;
     const first = !prevValid;
     const [zx0, zy0, zx1, zy1] = zonePx();
     const wT = S.white, sT = S.sat, mT = S.motion;
-    let moving = 0, zoneArea = 0;
     white.fill(0); mask.fill(0);
-    for (let y = 0; y < PH; y++) {
-      const inY = y >= zy0 && y <= zy1;
-      for (let x = 0; x < PW; x++) {
-        const i = y * PW + x, p = i * 4;
-        const r = d[p], g = d[p + 1], b = d[p + 2];
-        const gray = (r + g + b) / 3 | 0;
-        const diff = gray - prev[i];
-        prev[i] = gray;
-        if (!inY || x < zx0 || x > zx1) continue;
-        zoneArea++;
-        const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
-        const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
-        const isW = mx >= wT && mx - mn <= sT;
-        if (isW) white[i] = 1;
-        if (!first && (diff > mT || diff < -mT)) { moving++; if (isW) mask[i] = 1; }
+    for (let i = 0, p = 0, n = PW * PH; i < n; i++, p += 4) {
+      const r = d[p], g = d[p + 1], b = d[p + 2];
+      cur[i] = (r + g + b) / 3 | 0;
+      const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+      const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+      if (mx >= wT && mx - mn <= sT) white[i] = 1;
+    }
+    if (first) { prevValid = true; [prev, cur] = [cur, prev]; return; }
+    const { dx, dy } = estimateShift(cur, prev);
+    // a white pixel is "moving" only if it differs from every nearby pixel of the last frame,
+    // after allowing for the camera wobble, so shake and edges of still white things are ignored
+    let moving = 0, sampled = 0;
+    for (let y = zy0; y <= zy1; y++) {
+      const oy = y - dy;
+      for (let x = zx0; x <= zx1; x++) {
+        const i = y * PW + x, ox = x - dx;
+        if ((x & 7) === 0 && (y & 7) === 0 && ox >= 0 && ox < PW && oy >= 0 && oy < PH) {
+          sampled++; const e = cur[i] - prev[oy * PW + ox]; if (e > mT || e < -mT) moving++;
+        }
+        if (!white[i]) continue;
+        let still = false;
+        for (let ny = oy - 1; ny <= oy + 1 && !still; ny++) {
+          if (ny < 0 || ny >= PH) continue;
+          for (let nx = ox - 1; nx <= ox + 1; nx++) {
+            if (nx < 0 || nx >= PW) continue;
+            const e = cur[i] - prev[ny * PW + nx];
+            if (e <= mT && e >= -mT) { still = true; break; }
+          }
+        }
+        if (!still) mask[i] = 1;
       }
     }
-    prevValid = true;
-    if (first) return;
-    if (zoneArea && moving > zoneArea * 0.12) {
+    [prev, cur] = [cur, prev];
+    if (sampled && moving > sampled * 0.4) {
+      // the whole picture changed: a big jolt or a sudden light change
       candidates = [];
-      if (!mode) flash('Too much movement, keep the phone still');
+      if (!mode) flash('The camera moved a lot. If the wicket no longer sits on the stumps, draw it again.', 3000);
       tracks.forEach(tr => tr.miss++);
       pruneTracks();
       return;
@@ -592,22 +635,24 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     }
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
-  function bestActive() { let b = null; for (const tr of tracks) if (tr.pts.length >= 3 && (!b || tr.pts.length > b.pts.length)) b = tr; return b; }
+  function bestActive() {
+    let b = null;
+    for (const tr of tracks) if (tr.pts.length >= 3 && tr.pts[tr.pts.length - 1].d >= tr.pts[0].d && (!b || tr.pts.length > b.pts.length)) b = tr;
+    return b;
+  }
 
   const median = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
 
   function finalize(tr) {
     const pts = tr.pts;
     if (pts.length < MIN_PTS) return;
-    let path = 0;
-    for (let k = 1; k < pts.length; k++) path += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
-    const net = Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y);
+    // only balls coming towards the camera count: they get bigger as they approach.
+    // Throws across the picture, people walking and balls going away are ignored.
     const grow = median(pts.slice(-3).map(p => p.d)) / median(pts.slice(0, 3).map(p => p.d));
-    const moved = net > Math.max(PW, PH) * 0.04, grew = grow > 1.3;
-    if (!moved && !grew) return;
-    if (moved && !grew && path > 0 && net / path < 0.5) return;
-    const del = { id: nextId++, pts: pts.map(p => ({ ...p })), at: new Date() };
-    del.res = judge(del.pts);
+    if (grow < 1.15) return;
+    const res = judge(pts);
+    if (res.offTarget) return; // heading nowhere near the stumps or the wide markers
+    const del = { id: nextId++, pts: pts.map(p => ({ ...p })), at: new Date(), res };
     deliveries.push(del);
     if (deliveries.length > 50) deliveries.shift();
     selected = del;
@@ -626,7 +671,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   // Would the ball have hit the stumps?
   function judge(pts) {
     const r = wkRect(PW, PH);
-    if (!r) return { verdict: null, reason: 'Place the wicket to get a decision' };
+    if (!r) return { verdict: null, reason: 'Draw the wicket to get a decision' };
     const f = focalProc(), Dw = f * STUMP_H / r.h;
     const seg = pts.slice(-Math.min(10, pts.length));
     const t0 = seg[0].t;
@@ -636,7 +681,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const X = seg.map((p, i) => (p.x - cx) * Z[i] / f), Y = seg.map((p, i) => (p.y - cy) * Z[i] / f);
     const fz = fit(T, Z), fx = fit(T, X), fy = fit(T, Y);
     if (!fz || !fx || !fy) return { verdict: null, reason: 'Not enough frames on the ball' };
-    if (fz.b >= 0) return { verdict: null, reason: 'Ball wasn\'t travelling towards the stumps' };
+    if (fz.b >= 0) return { verdict: null, offTarget: true, reason: 'Ball wasn\'t travelling towards the stumps' };
     const tl = T[T.length - 1];
     const zLast = fz.a + fz.b * tl;
     if (zLast - Dw > 6) return { verdict: null, reason: 'Ball was lost too far from the stumps to project' };
@@ -646,6 +691,16 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const px = cx + f * (fx.a + fx.b * tc) / Dw;
     let py = cy + f * (fy.a + fy.b * tc) / Dw;
     const br = f * BALL / 2 / Dw;
+    // where the ball crosses the batter's crease, to compare with the wide markers
+    const Zc = Dw + CREASE, tw = (Zc - fz.a) / fz.b;
+    const wx = cx + f * (fx.a + fx.b * tw) / Zc, wy = cy + f * (fy.a + fy.b * tw) / Zc;
+    // ignore anything heading well away from the stumps and the wide markers
+    let lo = r.bx - 8 * r.w, hi = r.bx + 8 * r.w, bx = px;
+    if (wides) { const span = (wides.xr - wides.xl) * PW; lo = wides.xl * PW - span / 2; hi = wides.xr * PW + span / 2; bx = wx; }
+    if (bx < lo || bx > hi || py < r.y0 - 3 * r.h) return { verdict: null, offTarget: true, reason: 'Ball was heading away from the stumps' };
+    const gap = Math.max(0, zLast - Dw);
+    if (wides && (wx < wides.xl * PW || wx > wides.xr * PW))
+      return { verdict: 'wide', label: 'Wide', x: wx / PW, y: Math.min(wy, wides.y * PH) / PH, r: f * BALL / 2 / Zc / PH, projected: tw > tl, gap: Math.max(0, zLast - Zc), crease: true };
     if (py > r.y1) py = r.y1 - br; // heading into the ground near the stumps: treat as low
     const inside = px >= r.x0 && px <= r.x1 && py >= r.y0 && py <= r.y1;
     const dxo = Math.max(r.x0 - px, 0, px - r.x1), dyo = Math.max(r.y0 - py, 0, py - r.y1);
@@ -654,7 +709,6 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (inside) { verdict = 'hitting'; label = 'Hitting'; }
     else if (out <= br) { verdict = 'clipping'; label = 'Umpire\'s call'; }
     else { verdict = 'missing'; label = dyo > dxo ? 'Going over' : 'Missing'; }
-    const gap = Math.max(0, zLast - Dw);
     return { verdict, label, x: px / PW, y: py / PH, r: br / PH, projected, gap, fit: { fx, fy, tl, tc } };
   }
 
@@ -664,7 +718,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   function noteFor(d) {
     const res = d.res;
     if (!res.verdict) return 'Ball ' + d.id + ': ' + res.reason;
-    return 'Ball ' + d.id + (res.projected ? ': projected ' + res.gap.toFixed(1) + ' m on to the stumps' : ': tracked all the way to the stumps');
+    const to = res.crease ? 'the crease' : 'the stumps';
+    return 'Ball ' + d.id + (res.projected ? ': projected ' + res.gap.toFixed(1) + ' m on to ' + to : ': tracked all the way to ' + to);
   }
   function updateBoard() {
     $('nDel').textContent = deliveries.length;
@@ -674,7 +729,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     v.className = 'board-verdict';
     if (!selected) {
       v.textContent = wk ? 'Ready' : 'No wicket';
-      $('note').textContent = wk ? 'Waiting for a delivery' : 'Place the wicket to get decisions';
+      $('note').textContent = wk ? 'Waiting for a delivery' : 'Tap Draw wicket to get decisions';
       return;
     }
     const res = selected.res;
@@ -682,12 +737,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     else v.textContent = 'No decision';
     $('note').textContent = noteFor(selected);
   }
+  const VCOL = { hitting: '#3DDC84', missing: '#FF5A5A', clipping: '#F3C433', wide: '#FF9F1C' };
   let popTimer = null;
   function popVerdict(d) {
     const p = $('pop');
     if (!d.res.verdict) return;
     p.textContent = d.res.label;
-    p.style.background = d.res.verdict === 'hitting' ? 'var(--hit)' : d.res.verdict === 'missing' ? 'var(--miss)' : 'var(--call)';
+    p.style.background = VCOL[d.res.verdict];
     p.hidden = false; clearTimeout(popTimer); popTimer = setTimeout(() => { p.hidden = true; }, 2500);
   }
   function renderLog() {
@@ -701,7 +757,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       const left = document.createElement('div');
       const name = document.createElement('div'); name.textContent = 'Ball ' + d.id;
       const meta = document.createElement('div'); meta.className = 'meta';
-      meta.textContent = d.pts.length + ' frames, ' + (d.res.verdict ? (d.res.projected ? 'projected' : 'reached stumps') : 'no decision') + ', ' + t;
+      meta.textContent = d.pts.length + ' frames, ' + (d.res.verdict ? (d.res.projected ? 'projected' : 'tracked all the way') : 'no decision') + ', ' + t;
       left.append(name, meta);
       const v = document.createElement('span'); v.className = 'v ' + (d.res.verdict || '');
       v.textContent = d.res.verdict ? d.res.label : '–';
@@ -764,20 +820,27 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     // AR wicket
     let w = wk;
     if (mode === 'wicket' && dragStart && dragNow) {
-      const h = dragStart.y - dragNow.y;
-      w = h > 0.01 ? { x: dragStart.x, y: dragStart.y, h } : null;
+      // the box being drawn with the finger, and the wicket it will make
+      const b = normRect(dragStart, dragNow);
+      dctx.save();
+      dctx.strokeStyle = '#fff'; dctx.lineWidth = lw; dctx.setLineDash([lw * 3, lw * 2]);
+      dctx.strokeRect(b.x0 * W, b.y0 * H, (b.x1 - b.x0) * W, (b.y1 - b.y0) * H);
+      dctx.restore();
+      w = b.y1 - b.y0 > 0.01 ? boxToWicket(b) : null;
     }
     if (w) drawWicket(w, W, H, lw, nowMs < wkFlashUntil || mode === 'wicket');
 
-    // first tap of the wicket (base of the middle stump)
-    if (mode === 'wicket' && tapBase) {
-      const bx = tapBase.x * W, by = tapBase.y * H;
+    // wide markers
+    const wl = mode === 'wide' ? (wideTap ? [wideTap.x] : []) : wides ? [wides.xl, wides.xr] : [];
+    const wyMark = mode === 'wide' && wideTap ? wideTap.y : wides ? wides.y : 0;
+    for (const x of wl) {
+      const X = x * W;
       dctx.save();
-      dctx.strokeStyle = '#35A7FF'; dctx.lineWidth = lw;
-      dctx.beginPath(); dctx.arc(bx, by, lw * 5, 0, Math.PI * 2); dctx.stroke();
-      dctx.beginPath(); dctx.moveTo(bx - lw * 8, by); dctx.lineTo(bx + lw * 8, by); dctx.moveTo(bx, by - lw * 8); dctx.lineTo(bx, by + lw * 8); dctx.stroke();
-      dctx.setLineDash([lw * 3, lw * 3]);
-      dctx.beginPath(); dctx.moveTo(bx, by); dctx.lineTo(bx, 0); dctx.stroke();
+      dctx.strokeStyle = '#FF9F1C'; dctx.lineWidth = lw * 1.2; dctx.setLineDash([lw * 4, lw * 3]);
+      dctx.beginPath(); dctx.moveTo(X, 0); dctx.lineTo(X, H); dctx.stroke();
+      dctx.setLineDash([]); dctx.lineWidth = lw * 1.5;
+      dctx.beginPath(); dctx.arc(X, wyMark * H, lw * 4, 0, Math.PI * 2); dctx.stroke();
+      label('WIDE', X, lw * 12, lw);
       dctx.restore();
     }
 
@@ -862,7 +925,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (!res || !res.verdict) return;
     const last = d.pts[d.pts.length - 1];
     const ix = res.x * W, iy = res.y * H, ir = Math.max(lw * 2, res.r * H);
-    const col = res.verdict === 'hitting' ? '#3DDC84' : res.verdict === 'missing' ? '#FF5A5A' : '#F3C433';
+    const col = VCOL[res.verdict];
     dctx.save();
     if (res.projected) {
       dctx.strokeStyle = col; dctx.lineWidth = lw * 1.4; dctx.setLineDash([lw * 3, lw * 2.5]);
@@ -899,16 +962,15 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (dragStart) { dragNow = normPt(e); return; }
     if (moveOff) { const p = normPt(e); wk = { x: p.x + moveOff.dx, y: p.y + moveOff.dy, h: wk.h }; }
   });
-  function placeWicket(base, h) {
-    wk = { x: base.x, y: base.y, h }; kFocal = null; $('measured').value = '';
+  // the box's height sets the wicket (and the distance); it sits on the box's bottom edge
+  const boxToWicket = b => ({ x: (b.x0 + b.x1) / 2, y: b.y1, h: b.y1 - b.y0 });
+  function placeWicket(w) {
+    wk = w; kFocal = null; $('measured').value = '';
     save(); rejudge();
     wkFlashUntil = performance.now() + 3000;
-    const next = setupFlow;
-    setMode(next ? 'ball' : null);
+    setMode(null);
     const D = wicketDist();
-    const msg = 'Wicket placed' + (D ? ', ' + D.toFixed(1) + ' m away' : '');
-    if (next) hint(msg + '. Now hold a ball still and tap it');
-    else flash(msg + '. Drag it to fine-tune.', 4000);
+    flash('Wicket set' + (D ? ', ' + D.toFixed(1) + ' m away' : '') + (wides ? '' : '. Next: Wide markers (optional)'), 4000);
   }
   function endPointer() {
     if (moveOff) { moveOff = null; save(); rejudge(); return; }
@@ -916,16 +978,17 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const cr = disp.getBoundingClientRect();
     const isTap = Math.hypot((dragNow.x - dragStart.x) * cr.width, (dragNow.y - dragStart.y) * cr.height) < 12;
     if (mode === 'wicket') {
-      // either drag from base to top, or tap the base and then the top
-      let base = null, top = null;
-      if (!isTap) { base = dragStart; top = dragNow; }
-      else if (!tapBase) { tapBase = dragStart; hint('Now tap the top of the stumps'); }
-      else { base = tapBase; top = dragStart; }
-      if (base) {
-        const h = base.y - top.y;
-        if (h > 0.02) placeWicket(base, h);
-        else if (isTap) { tapBase = top; hint('Moved the base. Now tap the top of the stumps'); }
-        else flash('Drag upwards from the base of the stumps');
+      const b = normRect(dragStart, dragNow);
+      if (!isTap && b.y1 - b.y0 > 0.02) placeWicket(boxToWicket(b));
+      else hint('Drag from the top of the stumps down to the ground');
+    } else if (mode === 'wide') {
+      if (!isTap) { /* ignore drags */ }
+      else if (!wideTap) { wideTap = dragStart; hint('Now tap the wide line on the other side'); }
+      else if (Math.abs(dragStart.x - wideTap.x) < 0.03) hint('Tap the wide line on the other side of the pitch');
+      else {
+        const a = wideTap, c = dragStart;
+        wides = { xl: Math.min(a.x, c.x), xr: Math.max(a.x, c.x), y: (a.y + c.y) / 2 };
+        save(); setMode(null); rejudge(); flash('Wide markers set', 2500);
       }
     } else if (mode === 'ball') {
       const msg = calibrateBall(dragStart);
