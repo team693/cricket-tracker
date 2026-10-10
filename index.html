@@ -90,7 +90,7 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
 .card h3{font:600 1.25rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 10px}
 .row{display:flex;flex-wrap:wrap;gap:8px}
-button{appearance:none;border:1px solid transparent;background:var(--btn);color:var(--btn-ink);font:600 .95rem/1 "Barlow",system-ui,sans-serif;padding:10px 14px;border-radius:8px;cursor:pointer}
+button{-webkit-tap-highlight-color:transparent;appearance:none;border:1px solid transparent;background:var(--btn);color:var(--btn-ink);font:600 .95rem/1 "Barlow",system-ui,sans-serif;padding:10px 14px;border-radius:8px;cursor:pointer}
 button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 button.on{outline:2px solid var(--zone);outline-offset:1px}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--zone);outline-offset:2px}
@@ -117,7 +117,21 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 .log .empty-log:hover{background:none}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .tools button{flex:1 1 0;min-width:0;padding:14px 10px;font-size:1rem}
-.tools-help{margin-top:6px}
+.setup{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.seg button{padding:13px 6px;font-size:1rem;background:var(--soft);color:var(--ink)}
+.seg button.on{background:var(--btn);color:var(--btn-ink);outline:0}
+.seg .done{background:#1E9E58;color:#fff}
+.setup-ctl{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px}
+.dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,52px);gap:6px}
+.dpad button,.sizer button{font-size:1.3rem;padding:0;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.dpad .up{grid-column:2;grid-row:1}.dpad .left{grid-column:1;grid-row:2}.dpad .right{grid-column:3;grid-row:2}.dpad .down{grid-column:2;grid-row:3}
+.dpad button:disabled{opacity:.25}
+.sizer{display:grid;grid-template-rows:52px auto 52px;gap:6px;justify-items:center;min-width:110px}
+.sizer button{width:110px;font-size:1.7rem}
+.sizer span{font-size:.85rem;color:var(--muted);font-weight:600}
+.setup .check{margin-top:10px}
+.setup .small{margin-top:8px}
 .tabs{display:flex;gap:4px;background:var(--soft);border-radius:10px;padding:3px}
 .tabs button{background:transparent;color:var(--ink);padding:8px 16px;border-radius:8px}
 .tabs button.on{background:var(--btn);color:var(--btn-ink);outline:0}
@@ -196,12 +210,32 @@ font-size:.9rem;margin-top:8px}
           <div class="verdict-pop" id="pop" hidden></div>
         </div>
       </div>
-      <div class="tools">
-        <button id="wkBtn">Draw wicket</button>
-        <button class="ghost" id="wideBtn">Wide markers</button>
+      <div class="tools" id="tools">
+        <button id="setupBtn">Set up wicket</button>
         <button class="ghost" id="resetBtn">Clear</button>
       </div>
-      <p class="small tools-help">Draw wicket: tap the far stumps to zoom in, then draw a box around them. Wide markers: tap the batter's crease, then each wide line.</p>
+      <div class="setup" id="setupPanel" hidden>
+        <div class="seg" role="group" aria-label="What to adjust">
+          <button id="tgtWk" class="on" aria-pressed="true">Wicket</button>
+          <button id="tgtWide" aria-pressed="false">Wide lines</button>
+          <button id="setupDone" class="done">Done</button>
+        </div>
+        <div class="setup-ctl">
+          <div class="dpad">
+            <button data-mv="up" class="up" aria-label="Move up">▲</button>
+            <button data-mv="left" class="left" aria-label="Move left">◀</button>
+            <button data-mv="right" class="right" aria-label="Move right">▶</button>
+            <button data-mv="down" class="down" aria-label="Move down">▼</button>
+          </div>
+          <div class="sizer">
+            <button data-sz="1" aria-label="Bigger">+</button>
+            <span id="sizeLbl">Size</span>
+            <button data-sz="-1" aria-label="Smaller">−</button>
+          </div>
+        </div>
+        <label class="check" id="widesRow" hidden><input type="checkbox" id="widesOn"> Call wides</label>
+        <p class="small" id="setupHelp"></p>
+      </div>
 
       <p class="err" id="err"></p>
     </section>
@@ -231,8 +265,8 @@ font-size:.9rem;margin-top:8px}
         <h3>Setup</h3>
         <ol class="steps">
           <li>Put the phone behind the bowler's stumps (the umpire's spot), looking at the batter's stumps.</li>
-          <li>Tap Draw wicket, tap the far stumps to zoom in, then draw a box around them with your finger.</li>
-          <li>Optional: tap Wide markers, tap near the batter's crease to zoom in, then tap the wide line on each side.</li>
+          <li>Tap Set up wicket. A frame appears: move it onto the far stumps with the arrows (or drag anywhere on the picture) and make it fit with − / +.</li>
+          <li>The wide lines are placed for you. To fine-tune, tap Wide lines and use the same buttons. Tap Done.</li>
           <li>Bowl. Only balls travelling towards the batter's wicket are judged.</li>
         </ol>
         <label class="field">Phone distance behind the bowler's stumps (m)
@@ -354,18 +388,18 @@ font-size:.9rem;margin-top:8px}
   let mList, mCount = 0, prev, cur, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
   let stream = null, running = false, rvfc = null;
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
-  let mode = null, dragStart = null, dragNow = null, sel = null;
-  let wideTap = null, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
-  let zone = null, wk = null, wides = null, viewZoom = 1;
+  let mode = null, dragStart = null, dragNow = null;
+  let wkFlashUntil = 0, previewUntil = 0, ballMark = null, setup = null;
+  let zone = null, wk = null, wideAdj = { dx: 0, g: 1 }, viewZoom = 1;
   let ref = null, avg = null, refMean = 0, off = { x: 0, y: 0 }, recent = [], frameNo = 0;
-  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph' };
+  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph', widesOn: true };
 
   // ---------- persistence ----------
   // v3: camera at the bowler's end, looking at the batter's wicket
-  function save() { try { localStorage.setItem('wkt-v3', JSON.stringify({ S, zone, wk: wkNow(), wides: widesNow() })); } catch (e) {} }
+  function save() { try { localStorage.setItem('wkt-v3', JSON.stringify({ S, zone, wk: wkNow(), wideAdj })); } catch (e) {} }
   try {
     const o = JSON.parse(localStorage.getItem('wkt-v3') || 'null');
-    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; wides = o.wides || null; }
+    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; if (o.wideAdj) wideAdj = o.wideAdj; }
   } catch (e) {}
   S.showMask = false;
 
@@ -376,7 +410,18 @@ font-size:.9rem;margin-top:8px}
   const focalProc = () => wk ? stumpsDist() * wk.h * PH / STUMP_H : DEFAULT_K * Math.max(PW, PH);
   // wicket and wide markers are stored where they were drawn; `off` is how far the picture has drifted since
   const wkNow = () => wk ? { x: wk.x + off.x, y: wk.y + off.y, h: wk.h } : null;
-  const widesNow = () => wides ? { xl: wides.xl + off.x, xr: wides.xr + off.x, y: wides.y + off.y } : null;
+  // Wide lines are worked out from the wicket: 0.89 m either side of the middle stump, on the batter's popping
+  // crease (1.22 m nearer the camera), assuming the phone is roughly level. wideAdj holds the user's fine-tuning:
+  // a sideways shift (picture fraction) and a gap scale.
+  const WIDE_X = 0.89;
+  function widesNow() {
+    const k = wkNow();
+    if (!k || !S.widesOn || !PW) return null;
+    const f = stumpsDist() * k.h * PH / STUMP_H, Dw = stumpsDist(), Zc = Dw - CREASE, cx = PW / 2, cy = PH / 2;
+    const X0 = (k.x * PW - cx) * Dw / f, hc = (k.y * PH - cy) * Dw / f;
+    const mid = cx + f * X0 / Zc, half = f * WIDE_X / Zc * wideAdj.g;
+    return { xl: (mid - half) / PW + wideAdj.dx, xr: (mid + half) / PW + wideAdj.dx, y: (cy + f * hc / Zc) / PH };
+  }
   function wkRect(W, H) {
     const k = wkNow();
     if (!k) return null;
@@ -403,11 +448,9 @@ font-size:.9rem;margin-top:8px}
   syncSliders();
   $('showMask').addEventListener('change', e => { S.showMask = e.target.checked; });
   $('camBtn').onclick = startCamera; $('camBtn2').onclick = startCamera;
-  $('wkBtn').onclick = () => setMode(mode === 'wicket' ? null : 'wicket');
-  $('wideBtn').onclick = () => setMode(mode === 'wide' ? null : 'wide');
   $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
-  $('resetBtn').onclick = () => { sel = null; zone = null; wk = null; wides = null; ballMark = null; ref = null; off = { x: 0, y: 0 }; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
+  $('resetBtn').onclick = () => { if (setup) exitSetup(true); zone = null; wk = null; wideAdj = { dx: 0, g: 1 }; ballMark = null; ref = null; off = { x: 0, y: 0 }; setMode(null); save(); rejudge(); updateSetupBtn(); flash('Wicket and wide lines cleared'); };
   $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
   $('behind').value = S.behind;
   $('behind').addEventListener('change', () => {
@@ -452,18 +495,14 @@ font-size:.9rem;margin-top:8px}
   const toScreen = (nx, ny) => ({ x: view.tx + view.z * nx * stageEl.clientWidth, y: view.ty + view.z * ny * stageEl.clientHeight });
   function pickZoom(p) { const s = toScreen(p.x, p.y); zoomViewAbout(s.x, s.y, Math.max(view.z, PICK_ZOOM)); pickZoomed = true; }
   function setMode(m) {
-    mode = m; wideTap = null;
-    if (m) { sel = null; }
+    mode = m;
+    if (m && setup) exitSetup(true);
     if (pickZoomed) { resetView(); pickZoomed = false; }
-    $('wkBtn').classList.toggle('on', m === 'wicket');
-    $('wideBtn').classList.toggle('on', m === 'wide');
     $('ballBtn').classList.toggle('on', m === 'ball');
     $('zoneBtn').classList.toggle('on', m === 'zone');
     $('stage').classList.toggle('picking', !!m);
     if (m && !running) setError('Start the camera or open a video first.');
-    if (m === 'wicket') hint('Tap the far stumps to zoom in');
-    else if (m === 'wide') hint('Tap the batter\'s crease to zoom in');
-    else if (m === 'ball') hint('Hold a ball still and tap it');
+    if (m === 'ball') hint('Hold a ball still and tap it');
     else if (m === 'zone') hint('Drag a box over the area the ball travels through');
     else hint(null);
   }
@@ -494,6 +533,7 @@ font-size:.9rem;margin-top:8px}
     try { await video.play(); } catch (e) {}
     setupZoom();
     keepAwake();
+    if (!wk) setTimeout(() => { if (running && !wk && !setup) enterSetup('wk'); }, 300); // first time: straight into setup
     stream.getVideoTracks()[0].addEventListener('ended', () => {
       running = false; tracks = [];
       $('empty').hidden = false;
@@ -549,7 +589,7 @@ font-size:.9rem;margin-top:8px}
     bakeOffset();
     const sc = v => 0.5 + (v - 0.5) * k;
     if (wk) { wk = { x: sc(wk.x), y: sc(wk.y), h: wk.h * k }; sizeLimitsFromWicket(); }
-    if (wides) wides = { xl: sc(wides.xl), xr: sc(wides.xr), y: sc(wides.y) };
+    wideAdj = { dx: wideAdj.dx * k, g: wideAdj.g };
     rejudge();
   }
   function zoomBy(f) {
@@ -665,7 +705,6 @@ font-size:.9rem;margin-top:8px}
   // re-base stored overlays onto the live picture (before a new reference is taken)
   function bakeOffset() {
     if (wk) wk = wkNow();
-    if (wides) wides = widesNow();
     off = { x: 0, y: 0 };
   }
   function driftCost(g, dm, ox, oy, st) {
@@ -770,7 +809,7 @@ font-size:.9rem;margin-top:8px}
     updateAvg(prev);
     if (wk) {
       if (!ref) { if (performance.now() > refHoldUntil) captureRef(); }
-      else if (++frameNo % 10 === 0 && !sel && !gest) checkDrift(avg); // not while the user is adjusting
+      else if (++frameNo % 10 === 0 && !setup && !gest) checkDrift(avg); // not while the user is adjusting
 
     }
 
@@ -980,7 +1019,7 @@ font-size:.9rem;margin-top:8px}
 
   function finalize(tr) {
     const pts = tr.pts;
-    if (pts.length < MIN_PTS || !wk) return; // nothing to judge against until the wicket is drawn
+    if (pts.length < MIN_PTS || !wk || setup) return; // nothing to judge until the wicket is set (and setup is done)
     // only balls travelling away from the camera, towards the far wicket, count: they get smaller.
     // Throws back to the bowler, people walking and balls going sideways are ignored.
     const grow = median(pts.slice(-3).map(p => p.d)) / median(pts.slice(0, 3).map(p => p.d));
@@ -1094,7 +1133,7 @@ font-size:.9rem;margin-top:8px}
     v.className = 'board-verdict';
     if (!selected) {
       v.textContent = wk ? 'Ready' : 'No wicket';
-      $('note').textContent = wk ? 'Waiting for a delivery' : 'Tap Draw wicket to get decisions';
+      $('note').textContent = wk ? 'Waiting for a delivery' : 'Tap Set up wicket to get decisions';
       return;
     }
     const res = selected.res;
@@ -1186,74 +1225,34 @@ font-size:.9rem;margin-top:8px}
     }
 
     // AR wicket
-    let w = wkNow();
-    if (mode === 'wicket' && dragStart && dragNow) {
-      // the box being drawn with the finger, and the wicket it will make
-      const b = normRect(dragStart, dragNow);
-      dctx.save();
-      dctx.strokeStyle = '#fff'; dctx.lineWidth = lw; dctx.setLineDash([lw * 3, lw * 2]);
-      dctx.strokeRect(b.x0 * W, b.y0 * H, (b.x1 - b.x0) * W, (b.y1 - b.y0) * H);
-      dctx.restore();
-      w = b.y1 - b.y0 > 0.01 ? boxToWicket(b) : null;
-    }
-    if (w) drawWicket(w, W, H, lw, nowMs < wkFlashUntil || mode === 'wicket');
+    const w = wkNow();
+    if (w) drawWicket(w, W, H, lw, nowMs < wkFlashUntil || setup === 'wk');
 
     // wide markers
     const wn = widesNow();
-    const wl = mode === 'wide' ? (wideTap ? [wideTap.x] : []) : wn ? [wn.xl, wn.xr] : [];
-    const wyMark = mode === 'wide' && wideTap ? wideTap.y : wn ? wn.y : 0;
+    const wl = wn ? [wn.xl, wn.xr] : [];
+    const wyMark = wn ? wn.y : 0;
+    const px = W / Math.max(1, disp.clientWidth) / view.z; // canvas units per on-screen pixel
 
     for (const x of wl) {
       const X = x * W;
       dctx.save();
-      dctx.strokeStyle = '#FF9F1C'; dctx.lineWidth = lw * 1.2; dctx.setLineDash([lw * 4, lw * 3]);
+      dctx.strokeStyle = setup === 'wides' ? '#FFD08A' : '#FF9F1C'; dctx.lineWidth = setup === 'wides' ? 3 * px : lw * 1.2; dctx.setLineDash(setup === 'wides' ? [] : [lw * 4, lw * 3]);
       dctx.beginPath(); dctx.moveTo(X, 0); dctx.lineTo(X, H); dctx.stroke();
       dctx.setLineDash([]); dctx.lineWidth = lw * 1.5;
       dctx.beginPath(); dctx.arc(X, wyMark * H, lw * 4, 0, Math.PI * 2); dctx.stroke();
-      label('WIDE', X, lw * 12, lw);
+      if (setup) label('WIDE', X, wyMark * H - 10 * px, lw);
       dctx.restore();
     }
 
-    // selection: highlighted wide line(s), the dot between the lines (grabs both), the wicket outline
-    if (!mode) {
-      const px = W / Math.max(1, disp.clientWidth) / view.z; // canvas units per on-screen pixel
-      if (wn) {
-        const my = wn.y * H, mx = (wn.xl + wn.xr) / 2 * W;
-        for (const [k, x] of [['L', wn.xl], ['R', wn.xr]]) {
-          if (sel !== k && sel !== 'both') continue;
-          dctx.save();
-          dctx.strokeStyle = '#fff'; dctx.lineWidth = 3 * px;
-          dctx.beginPath(); dctx.moveTo(x * W, 0); dctx.lineTo(x * W, H); dctx.stroke();
-          dctx.fillStyle = '#FF9F1C'; dctx.strokeStyle = '#fff'; dctx.lineWidth = 2 * px;
-          dctx.beginPath(); dctx.arc(x * W, my, 11 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
-          dctx.restore();
-        }
-        dctx.save();
-        dctx.strokeStyle = '#FF9F1C'; dctx.lineWidth = 2 * px; dctx.setLineDash([4 * px, 4 * px]);
-        dctx.beginPath(); dctx.moveTo(wn.xl * W, my); dctx.lineTo(wn.xr * W, my); dctx.stroke();
-        dctx.setLineDash([]);
-        dctx.fillStyle = sel === 'both' ? '#FF9F1C' : 'rgba(10,20,14,0.85)'; dctx.strokeStyle = sel === 'both' ? '#fff' : '#FF9F1C';
-        dctx.beginPath(); dctx.arc(mx, my, 9 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
-        dctx.restore();
-      }
-      if (sel === 'wk') {
-        const r = wkRect(W, H);
-        if (r) {
-          dctx.save();
-          dctx.strokeStyle = '#F3C433'; dctx.lineWidth = 2.5 * px; dctx.setLineDash([6 * px, 4 * px]);
-          const g = 6 * px;
-          dctx.strokeRect(r.x0 - g, r.y0 - g, r.w + 2 * g, r.h + 2 * g);
-          // resize handle on top: drag up for taller, down for shorter
-          const hx = r.bx, hy = r.y0 - g - 14 * px;
-          dctx.setLineDash([]);
-          dctx.fillStyle = '#F3C433'; dctx.strokeStyle = '#fff'; dctx.lineWidth = 2 * px;
-          dctx.beginPath(); dctx.arc(hx, hy, 11 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
-          dctx.fillStyle = '#10180F';
-          dctx.beginPath(); dctx.moveTo(hx, hy - 7 * px); dctx.lineTo(hx - 4 * px, hy - 2 * px); dctx.lineTo(hx + 4 * px, hy - 2 * px); dctx.fill();
-          dctx.beginPath(); dctx.moveTo(hx, hy + 7 * px); dctx.lineTo(hx - 4 * px, hy + 2 * px); dctx.lineTo(hx + 4 * px, hy + 2 * px); dctx.fill();
-          dctx.restore();
-        }
-      }
+    // in setup: a bright outline around what's being adjusted
+    if (setup === 'wk' && w) {
+      const r = wkRect(W, H);
+      dctx.save();
+      dctx.strokeStyle = '#F3C433'; dctx.lineWidth = 2.5 * px; dctx.setLineDash([6 * px, 4 * px]);
+      const g = 8 * px;
+      dctx.strokeRect(r.x0 - g, r.y0 - g, r.w + 2 * g, r.h + 2 * g);
+      dctx.restore();
     }
 
 
@@ -1268,13 +1267,15 @@ font-size:.9rem;margin-top:8px}
     }
 
     // trails
+    if (setup) return; // keep the picture clear while setting up
     if (selected) drawDelivery(selected, sx, sy, W, H, lw);
     const live = bestActive();
     if (live) drawPath(live.pts, sx, sy, lw, 0.75);
   }
 
   function label(txt, x, yBottom, lw) {
-    const fs = Math.max(12, Math.round(lw * 7));
+    // a steady on-screen size (about 13 px) whatever the picture zoom
+    const fs = 13 * (disp.width / Math.max(1, disp.clientWidth)) / view.z;
     dctx.font = '600 ' + fs + 'px "Barlow Condensed", "Arial Narrow", sans-serif';
     dctx.textAlign = 'center';
     const tw = dctx.measureText(txt).width + fs * 0.8;
@@ -1359,76 +1360,122 @@ font-size:.9rem;margin-top:8px}
   }
   const normRect = (a, b) => ({ x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) });
 
-  // ---------- touch: select, move, pinch ----------
-  // Nothing on the picture moves until it's selected with a tap; small finger wobbles are ignored; moves follow
-  // the finger at half speed. Tap picks the nearest thing (wicket, a wide line, or the dot between the lines for
-  // both). Drag moves the selection; pinch opens/closes both wide lines or resizes the wicket; with nothing
-  // selected, pinch zooms and (when magnified) drag pans.
+  // ---------- setting up the wicket and wide lines ----------
+  // One button opens setup. A wicket frame appears at the right size for the known distance; the picture zooms in
+  // on it. Big buttons below the picture move it (hold to go faster) and change its size; or drag anywhere on the
+  // picture (so the finger never covers the stumps) and pinch. The wide lines are placed from the wicket and can be
+  // fine-tuned the same way. Outside setup, touching the picture can't move anything.
+  const STEP = 1; // processing pixels per tap
+  function defaultWicket() {
+    const f0 = DEFAULT_K * Math.max(PW, PH) * (zoomCaps ? S.camZoom : 1);
+    const h = f0 * STUMP_H / stumpsDist() / PH;
+    return { x: 0.5, y: 0.5 + h / 2, h };
+  }
+  function setTarget(t) {
+    setup = t;
+    $('tgtWk').classList.toggle('on', t === 'wk'); $('tgtWk').setAttribute('aria-pressed', t === 'wk');
+    $('tgtWide').classList.toggle('on', t === 'wides'); $('tgtWide').setAttribute('aria-pressed', t === 'wides');
+    $('sizeLbl').textContent = t === 'wk' ? 'Size' : 'Gap';
+    $('widesRow').hidden = t !== 'wides';
+    $('widesOn').checked = S.widesOn;
+    const noWides = t === 'wides' && !S.widesOn;
+    document.querySelectorAll('#setupPanel [data-mv], #setupPanel [data-sz]').forEach(b => { b.disabled = noWides || (t === 'wides' && (b.dataset.mv === 'up' || b.dataset.mv === 'down')); });
+    $('setupHelp').textContent = t === 'wk'
+      ? 'Line the frame up with the far stumps: base on the ground, top at the bails. Use the arrows and − / +, or drag anywhere on the picture and pinch.'
+      : S.widesOn ? 'The orange lines show the wide limit at the batter\'s crease. Move them with ◀ ▶ and use − / + to widen or narrow the gap, or drag and pinch on the picture.'
+      : 'Wides are not being called.';
+    hint(t === 'wk' ? 'Line up the frame with the stumps' : 'Adjust the wide lines');
+    fitView();
+  }
+  function enterSetup(t) {
+    if (!running) { setError('Start the camera first.'); return; }
+    setError('');
+    if (mode) setMode(null);
+    if (!wk) { wk = defaultWicket(); off = { x: 0, y: 0 }; }
+    $('tools').hidden = true; $('setupPanel').hidden = false;
+    setTarget(t || 'wk');
+  }
+  function exitSetup(quiet) {
+    if (!setup) return;
+    setup = null;
+    $('tools').hidden = false; $('setupPanel').hidden = true;
+    resetView(); hint(null);
+    if (wk) { bakeOffset(); captureRef(); sizeLimitsFromWicket(); }
+    save(); rejudge(); updateSetupBtn();
+    if (!quiet && wk) flash('Wicket set, far stumps ' + stumpsDist().toFixed(1) + ' m away', 3000);
+  }
+  function updateSetupBtn() { $('setupBtn').textContent = wk ? 'Adjust wicket' : 'Set up wicket'; }
+  $('setupBtn').onclick = () => enterSetup('wk');
+  $('setupDone').onclick = () => exitSetup();
+  $('tgtWk').onclick = () => setTarget('wk');
+  $('tgtWide').onclick = () => setTarget('wides');
+  $('widesOn').addEventListener('change', e => { S.widesOn = e.target.checked; save(); setTarget('wides'); });
+
+  // move / resize what's being set up; dx, dy in picture fractions
+  function moveTarget(dx, dy) {
+    if (setup === 'wk' && wk) wk = { x: wk.x + dx, y: wk.y + dy, h: wk.h };
+    else if (setup === 'wides' && S.widesOn) wideAdj = { dx: wideAdj.dx + dx, g: wideAdj.g };
+    keepInView();
+  }
+  function scaleTarget(k) {
+    if (setup === 'wk' && wk) wk = { x: wk.x, y: wk.y, h: Math.min(0.9, Math.max(0.01, wk.h * k)) };
+    else if (setup === 'wides' && S.widesOn) wideAdj = { dx: wideAdj.dx, g: Math.min(3, Math.max(0.3, wideAdj.g * k)) };
+  }
+  // magnify the picture so the wicket (and wide lines) fill a good part of it
+  function fitView() {
+    const k = wkNow(); if (!k) return;
+    const wn = widesNow();
+    // big enough to see the stumps clearly, but not so much that they could be off screen
+    let z = 0.3 / k.h;
+    if (wn) z = Math.min(z, 0.85 / Math.max(0.01, wn.xr - wn.xl));
+    z = Math.max(1, Math.min(3, z));
+
+    const W = stageEl.clientWidth, H = stageEl.clientHeight;
+    view.z = z; view.tx = W / 2 - z * k.x * W; view.ty = H * 0.55 - z * (k.y - k.h / 2) * H;
+    clampView(); applyView();
+  }
+  // keep the thing being adjusted on screen while zoomed in
+  function keepInView() {
+    const k = wkNow(); if (!k || view.z <= 1) return;
+    const s = toScreen(k.x, k.y - k.h / 2), W = stageEl.clientWidth, H = stageEl.clientHeight;
+    if (s.x < W * 0.15 || s.x > W * 0.85 || s.y < H * 0.15 || s.y > H * 0.85) { view.tx += W / 2 - s.x; view.ty += H * 0.55 - s.y; clampView(); applyView(); }
+  }
+
+  // buttons: act on press, and repeat (speeding up) while held
+  let holdTimer = null;
+  function buttonAct(b, n) {
+    const fast = n > 12 ? 4 : n > 4 ? 2 : 1;
+    if (b.dataset.mv) {
+      const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[b.dataset.mv];
+      moveTarget(d[0] * STEP * fast / PW, d[1] * STEP * fast / PH);
+    } else if (b.dataset.sz) scaleTarget(Math.pow(1.02, +b.dataset.sz * fast));
+  }
+  function stopHold() { clearTimeout(holdTimer); holdTimer = null; }
+  document.querySelectorAll('#setupPanel [data-mv], #setupPanel [data-sz]').forEach(b => {
+    b.addEventListener('pointerdown', e => {
+      if (b.disabled) return;
+      e.preventDefault();
+      stopHold();
+      let n = 0;
+      buttonAct(b, n);
+      const again = () => { buttonAct(b, ++n); holdTimer = setTimeout(again, 70); };
+      holdTimer = setTimeout(again, 380);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, stopHold));
+    b.addEventListener('contextmenu', e => e.preventDefault());
+    b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); buttonAct(b, 0); } });
+  });
+
+  // ---------- touches on the picture ----------
+  // In setup: one finger drags what's being adjusted (it follows the finger exactly; it doesn't need to be grabbed),
+  // two fingers pinch its size. Outside setup: pinch zooms, and drag pans when zoomed in. Nothing else.
   const ptrs = new Map();
   let gest = null, modePtr = null;
-  const GAIN = 0.5, DEAD = 10;
+  const DEAD = 4;
   const stageXY = e => { const r = stageEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-  function hitTest(s) {
-    const c = [];
-    const wn = widesNow();
-    if (wn) {
-      const L = toScreen(wn.xl, wn.y), R = toScreen(wn.xr, wn.y), M = { x: (L.x + R.x) / 2, y: L.y };
-      const dm = Math.hypot(s.x - M.x, s.y - M.y); if (dm < 28) c.push(['both', dm * 0.5]);
-      const dl = Math.abs(s.x - L.x); if (dl < 24) c.push(['L', dl]);
-      const dr = Math.abs(s.x - R.x); if (dr < 24) c.push(['R', dr]);
-    }
-    const r = wkRect(1, 1);
-    if (r) {
-      const a = toScreen(r.x0, r.y0), b = toScreen(r.x1, r.y1);
-      const d = Math.hypot(Math.max(a.x - s.x, 0, s.x - b.x), Math.max(a.y - s.y, 0, s.y - b.y));
-      if (d < 20) c.push(['wk', d]);
-    }
-    c.sort((u, v) => u[1] - v[1]);
-    return c.length ? c[0][0] : null;
-  }
-  // screen position of the wicket's resize handle (matches the drawing: just above the selection outline)
-  function wkHandle() {
-    const r = wkRect(1, 1);
-    if (!r) return null;
-    const t = toScreen(r.bx, r.y0);
-    return { x: t.x, y: t.y - 6 - 14 };
-  }
-  function selHint() {
-    if (sel === 'wk') hint('Wicket: drag to move it. Drag the top handle up or down to resize. Tap elsewhere when done.');
-    else if (sel === 'both') hint('Both wide lines: drag to move, pinch to open or close.');
-    else if (sel) hint('Wide line: drag to move it. Tap elsewhere when done.');
-    else hint(null);
-  }
   function pinchInfo() {
     const [a, b] = [...ptrs.values()];
     return { d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), dx: Math.max(10, Math.abs(a.x - b.x)), m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
-  }
-  function moveSel(dx, dy) { // stage pixels -> picture fractions, at half speed
-    const fx = dx * GAIN / (view.z * stageEl.clientWidth), fy = dy * GAIN / (view.z * stageEl.clientHeight);
-    if (sel === 'wk' && wk) wk = { x: wk.x + fx, y: wk.y + fy, h: wk.h };
-    else if (!wides) return;
-    else if (sel === 'both') wides = { xl: wides.xl + fx, xr: wides.xr + fx, y: wides.y + fy };
-    else if (sel === 'L') wides = { xl: Math.min(wides.xl + fx, wides.xr - 0.005), xr: wides.xr, y: wides.y + fy };
-    else if (sel === 'R') wides = { xl: wides.xl, xr: Math.max(wides.xr + fx, wides.xl + 0.005), y: wides.y + fy };
-    gest.changed = true;
-  }
-  function doPinch() {
-    const p = pinchInfo(), g = gest, r = p.d / g.d0;
-    if (sel === 'both' && g.wides0) {
-      const c = (g.wides0.xl + g.wides0.xr) / 2;
-      const half = Math.max(0.003, (g.wides0.xr - g.wides0.xl) / 2 * Math.pow(p.dx / g.dx0, GAIN));
-      wides = { xl: c - half, xr: c + half, y: g.wides0.y };
-      g.changed = true;
-    } else if (sel === 'wk' && g.wk0) {
-      wk = { x: g.wk0.x, y: g.wk0.y, h: Math.max(0.01, g.wk0.h * Math.pow(r, GAIN)) };
-      g.changed = true; g.resized = true;
-    } else if (!sel) {
-      if (zoomCaps) applyCamZoom(g.camZ0 * r);
-      else zoomViewAbout(p.m.x, p.m.y, g.viewZ0 * r);
-    }
-  }
-  function finishEdit() {
-    if (gest && gest.changed) { if (gest.resized) sizeLimitsFromWicket(); save(); rejudge(); }
   }
   disp.addEventListener('pointerdown', e => {
     disp.setPointerCapture(e.pointerId);
@@ -1437,13 +1484,10 @@ font-size:.9rem;margin-top:8px}
       if (ptrs.size === 1) { modePtr = e.pointerId; const p = normPt(e); dragStart = p; dragNow = p; }
       return;
     }
-    if (ptrs.size === 1) {
-      const s = stageXY(e), hd = sel === 'wk' ? wkHandle() : null;
-      gest = { type: 'down', start: s, last: s, resize: !!hd && Math.hypot(s.x - hd.x, s.y - hd.y) < 26 };
-    }
+    if (ptrs.size === 1) { const s = stageXY(e); gest = { type: 'down', start: s, last: s }; }
     else if (ptrs.size === 2) {
       const p = pinchInfo();
-      gest = { type: 'pinch', d0: p.d, dx0: p.dx, camZ0: S.camZoom, viewZ0: view.z, wides0: wides && { ...wides }, wk0: wk && { ...wk } };
+      gest = { type: 'pinch', last: p, camZ0: S.camZoom, viewZ0: view.z, d0: p.d };
     }
   });
   disp.addEventListener('pointermove', e => {
@@ -1452,15 +1496,20 @@ font-size:.9rem;margin-top:8px}
     ptrs.set(e.pointerId, s);
     if (mode) { if (e.pointerId === modePtr && dragStart) dragNow = normPt(e); return; }
     if (!gest) return;
-    if (gest.type === 'pinch') { if (ptrs.size >= 2) doPinch(); return; }
+    if (gest.type === 'pinch') {
+      if (ptrs.size < 2) return;
+      const p = pinchInfo();
+      if (setup) scaleTarget(setup === 'wides' ? p.dx / gest.last.dx : p.d / gest.last.d);
+      else if (zoomCaps) applyCamZoom(gest.camZ0 * p.d / gest.d0);
+      else zoomViewAbout(p.m.x, p.m.y, gest.viewZ0 * p.d / gest.d0);
+      gest.last = p;
+      return;
+    }
     if (gest.type === 'down' && Math.hypot(s.x - gest.start.x, s.y - gest.start.y) > DEAD) { gest.type = 'drag'; gest.last = s; return; }
     if (gest.type === 'drag') {
       const dx = s.x - gest.last.x, dy = s.y - gest.last.y;
       gest.last = s;
-      if (gest.resize && wk) { // base stays on the ground; dragging up makes it taller
-        wk = { x: wk.x, y: wk.y, h: Math.max(0.01, wk.h - dy * GAIN / (view.z * stageEl.clientHeight)) };
-        gest.changed = true; gest.resized = true;
-      } else if (sel) moveSel(dx, dy);
+      if (setup) moveTarget(dx / (view.z * stageEl.clientWidth), setup === 'wides' ? 0 : dy / (view.z * stageEl.clientHeight));
       else if (view.z > 1) panView(dx, dy);
     }
   });
@@ -1474,47 +1523,18 @@ font-size:.9rem;margin-top:8px}
     if (!gest) return;
     if (gest.type === 'pinch' && ptrs.size) { gest.type = 'after'; return; } // ignore the finger left behind
     if (ptrs.size) return;
-    if (gest.type === 'down' && e.type !== 'pointercancel') { if (!gest.resize) { sel = hitTest(gest.start); selHint(); } }
-
-    else finishEdit();
+    if (gest.type === 'down' && !setup && !mode && e.type !== 'pointercancel' && running) {
+      if (!wk) enterSetup('wk'); // a tap on the picture with no wicket yet starts setup
+    }
     gest = null;
   }
   disp.addEventListener('pointerup', pointerEnd);
   disp.addEventListener('pointercancel', pointerEnd);
-  // the box's height sets the wicket (and the distance); it sits on the box's bottom edge
-  const boxToWicket = b => ({ x: (b.x0 + b.x1) / 2, y: b.y1, h: b.y1 - b.y0 });
-  function placeWicket(w) {
-    bakeOffset();
-    wk = w;
-    captureRef();
-    sizeLimitsFromWicket();
-    save(); rejudge();
-    wkFlashUntil = performance.now() + 3000;
-    setMode(null);
-    const D = wicketDist();
-    flash('Wicket set' + (D ? ', ' + D.toFixed(1) + ' m away' : '') + (wides ? '' : '. Next: Wide markers (optional)'), 4000);
-  }
   function endPointer() {
     if (!dragStart || !dragNow) { dragStart = dragNow = null; return; }
     const cr = disp.getBoundingClientRect();
     const isTap = Math.hypot((dragNow.x - dragStart.x) * cr.width, (dragNow.y - dragStart.y) * cr.height) < 12;
-    if (mode === 'wicket') {
-      const b = normRect(dragStart, dragNow);
-      if (!isTap && b.y1 - b.y0 > 0.01) placeWicket(boxToWicket(b));
-      else if (isTap && !pickZoomed && view.z < 2) { pickZoom(dragStart); hint('Now draw a box around the stumps'); }
-      else hint('Drag from the top of the stumps down to the ground');
-    } else if (mode === 'wide') {
-      if (!isTap) { /* ignore drags */ }
-      else if (!pickZoomed && view.z < 2 && !wideTap) { pickZoom(dragStart); hint('Tap the wide line on one side'); }
-      else if (!wideTap) { wideTap = dragStart; hint('Now tap the wide line on the other side'); }
-      else if (Math.abs(dragStart.x - wideTap.x) < 0.01) hint('Tap the wide line on the other side of the pitch');
-      else {
-        const a = wideTap, c = dragStart;
-        // stored relative to the reference picture, like the wicket
-        wides = { xl: Math.min(a.x, c.x) - off.x, xr: Math.max(a.x, c.x) - off.x, y: (a.y + c.y) / 2 - off.y };
-        save(); setMode(null); rejudge(); flash('Wide markers set', 2500);
-      }
-    } else if (mode === 'ball') {
+    if (mode === 'ball') {
       const msg = calibrateBall(dragStart);
       if (msg) { setMode(null); flash(msg, 5000); }
     } else if (mode === 'zone') {
@@ -1525,7 +1545,8 @@ font-size:.9rem;margin-top:8px}
     dragStart = dragNow = null;
   }
 
-  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), sel, view: { ...view }, camZoom: S.camZoom });
+  updateSetupBtn();
+  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
  // for testing
   updateBoard();
   requestAnimationFrame(drawLoop);
