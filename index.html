@@ -56,7 +56,10 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
   header{display:none}
   .stage{max-width:min(100%, calc((100vh - 24px) * var(--ar,1.7778)));max-width:min(100%, calc((100svh - 24px) * var(--ar,1.7778)))}
 }
-.view{position:absolute;inset:0;transition:transform .25s ease}
+.view{position:absolute;inset:0;transform-origin:0 0}
+.zoomctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(10,20,14,.78);border-radius:999px;padding:4px}
+.zoomctl button{width:42px;height:42px;padding:0;border-radius:50%;font:600 1.5rem/1 "Barlow",system-ui,sans-serif;background:rgba(255,255,255,.16);color:#fff;border:0}
+.zoomctl span{color:#fff;font:600 .95rem/1 "Barlow",system-ui,sans-serif;min-width:3.1em;text-align:center;font-variant-numeric:tabular-nums}
 .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .stage video{object-fit:fill}
 .stage canvas{touch-action:none}
@@ -67,8 +70,8 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
 .empty h2{font:700 2rem/1.05 "Barlow Condensed","Arial Narrow",sans-serif;margin:0 0 6px}
 .empty p{margin:0 0 16px;max-width:40ch;color:#C5D6CB}
 .empty .row{justify-content:center}
-.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,20,14,.85);color:#fff;padding:6px 12px;border-radius:16px;font-size:.9rem;line-height:1.3;text-align:center;width:max-content;max-width:calc(100% - 20px);pointer-events:none}
-.verdict-pop{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 18px;border-radius:8px;font:700 1.8rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:#0B1510;pointer-events:none}
+.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,20,14,.85);color:#fff;padding:6px 12px;border-radius:16px;font-size:.9rem;line-height:1.3;text-align:center;width:max-content;max-width:calc(100% - 136px);pointer-events:none}
+.verdict-pop{position:absolute;left:10px;bottom:10px;padding:8px 14px;border-radius:8px;font:700 1.6rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:#0B1510;pointer-events:none}
 
 
 .panel{display:flex;flex-direction:column;gap:14px}
@@ -141,6 +144,9 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
               <button id="camBtn2">Start camera</button>
             </div>
           </div>
+          <div class="zoomctl" id="zoomCtl" hidden>
+            <button id="zoomIn" aria-label="Zoom in">+</button><span id="zoomLbl">1.0×</span><button id="zoomOut" aria-label="Zoom out">−</button>
+          </div>
           <div class="hint" id="hint" hidden></div>
           <div class="verdict-pop" id="pop" hidden></div>
         </div>
@@ -172,10 +178,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           <button id="camBtn">Start camera</button>
         </div>
         <p class="small">Tracking at <span id="fps">0</span> frames/sec.</p>
-        <label class="field" id="zoomRow" hidden>Camera zoom
-          <select id="camZoom" aria-label="Camera zoom"></select>
-        </label>
-        <p class="small">Use a stand or tripod. The screen stays on while the camera runs. Small wobbles are fine, and the wicket follows small shifts of the phone by itself; if it gets knocked hard, draw the wicket again. Zoom 2× helps the far wicket and ball show up bigger.</p>
+        <p class="small">Use a stand or tripod. The screen stays on while the camera runs. Small wobbles are fine, and the wicket follows small shifts of the phone by itself; if it gets knocked hard, draw the wicket again. Zoom with + / − on the picture or by pinching; about 2× helps the far wicket and ball show up bigger.</p>
 
       </div>
 
@@ -245,7 +248,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   let mList, mCount = 0, prev, cur, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
   let stream = null, running = false, rvfc = null;
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
-  let mode = null, dragStart = null, dragNow = null, moveOff = null;
+  let mode = null, dragStart = null, dragNow = null, sel = null;
   let wideTap = null, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
   let zone = null, wk = null, wides = null, viewZoom = 1;
   let ref = null, avg = null, refMean = 0, off = { x: 0, y: 0 }, recent = [], frameNo = 0;
@@ -298,7 +301,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   $('wideBtn').onclick = () => setMode(mode === 'wide' ? null : 'wide');
   $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
-  $('resetBtn').onclick = () => { zone = null; wk = null; wides = null; ballMark = null; ref = null; off = { x: 0, y: 0 }; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
+  $('resetBtn').onclick = () => { sel = null; zone = null; wk = null; wides = null; ballMark = null; ref = null; off = { x: 0, y: 0 }; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
   $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
   $('behind').value = S.behind;
   $('behind').addEventListener('change', () => {
@@ -308,29 +311,44 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (wk) sizeLimitsFromWicket();
     save(); rejudge(); flash('Far stumps ' + stumpsDist().toFixed(1) + ' m away');
   });
-  $('camZoom').addEventListener('change', async () => {
-    S.camZoom = +$('camZoom').value;
-    await applyZoom();
-    wk = null; wides = null; ref = null; off = { x: 0, y: 0 }; save(); rejudge();
-    flash('Zoom changed. Draw the wicket again.', 3000);
-
-  });
 
 
   let hintTimer = null;
   function hint(t) { const h = $('hint'); if (!t) { h.hidden = true; return; } h.textContent = t; h.hidden = false; }
   function flash(t, ms) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, ms || 1800); }
   function setError(t) { $('err').textContent = t || ''; }
-  // magnify the picture around a point, so far-away stumps and crease lines are easy to mark
-  function setView(z, p) {
-    const v = $('view');
-    if (p) v.style.transformOrigin = (p.x * 100).toFixed(2) + '% ' + (p.y * 100).toFixed(2) + '%';
-    v.style.transform = z > 1 ? 'scale(' + z + ')' : '';
-    viewZoom = z;
+  // ---------- picture magnification ----------
+  // The picture (video + overlay) is scaled by view.z about its top-left corner, then shifted by (tx, ty)
+  // stage pixels. Used for the tap-to-zoom while marking, and for zooming where camera zoom isn't available.
+  const view = { z: 1, tx: 0, ty: 0 };
+  const stageEl = $('stage');
+  let pickZoomed = false;
+  function applyView() {
+    $('view').style.transform = view.z > 1.001 ? 'translate(' + view.tx.toFixed(1) + 'px,' + view.ty.toFixed(1) + 'px) scale(' + view.z.toFixed(3) + ')' : '';
+    viewZoom = view.z;
+    updateZoomLabel();
   }
+  function clampView() {
+    const W = stageEl.clientWidth, H = stageEl.clientHeight;
+    if (view.z <= 1.001) { view.z = 1; view.tx = 0; view.ty = 0; return; }
+    view.tx = Math.min(0, Math.max(W - view.z * W, view.tx));
+    view.ty = Math.min(0, Math.max(H - view.z * H, view.ty));
+  }
+  function zoomViewAbout(sx, sy, z) { // keep the picture point under stage point (sx, sy) where it is
+    const px = (sx - view.tx) / view.z, py = (sy - view.ty) / view.z;
+    view.z = Math.max(1, Math.min(5, z));
+    view.tx = sx - view.z * px; view.ty = sy - view.z * py;
+    clampView(); applyView();
+  }
+  function panView(dx, dy) { view.tx += dx; view.ty += dy; clampView(); applyView(); }
+  function resetView() { view.z = 1; clampView(); applyView(); }
+  // stage-pixel position of a picture point given as fractions of the picture
+  const toScreen = (nx, ny) => ({ x: view.tx + view.z * nx * stageEl.clientWidth, y: view.ty + view.z * ny * stageEl.clientHeight });
+  function pickZoom(p) { const s = toScreen(p.x, p.y); zoomViewAbout(s.x, s.y, Math.max(view.z, PICK_ZOOM)); pickZoomed = true; }
   function setMode(m) {
     mode = m; wideTap = null;
-    if (viewZoom !== 1) setView(1);
+    if (m) { sel = null; }
+    if (pickZoomed) { resetView(); pickZoomed = false; }
     $('wkBtn').classList.toggle('on', m === 'wicket');
     $('wideBtn').classList.toggle('on', m === 'wide');
     $('ballBtn').classList.toggle('on', m === 'ball');
@@ -379,28 +397,62 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     onSourceReady();
   }
 
-  // the phone camera's own zoom, where the browser offers it (Chrome on Android does)
+  // ---------- zoom ----------
+  // + / − and pinching use the phone camera's own zoom where the browser offers it (Chrome on Android), so the
+  // ball really gets bigger for the tracker. Camera zoom crops around the centre, so the wicket and wide markers
+  // are rescaled about the centre to stay on the stumps. Elsewhere (e.g. iPhone) they magnify the picture.
+  let zoomCaps = null, zoomBusy = false, zoomWant = null, refHoldUntil = 0;
   function camTrack() { return stream ? stream.getVideoTracks()[0] : null; }
-  async function applyZoom() {
-    const tr = camTrack();
-    if (!tr || $('zoomRow').hidden) return;
-    try { await tr.applyConstraints({ advanced: [{ zoom: S.camZoom }] }); } catch (e) {}
-  }
   function setupZoom() {
-    const row = $('zoomRow'), sel = $('camZoom'), tr = camTrack();
-    row.hidden = true;
+    zoomCaps = null;
+    const tr = camTrack();
     let caps = null;
     try { caps = tr && tr.getCapabilities ? tr.getCapabilities() : null; } catch (e) {}
-    if (!caps || !caps.zoom) return;
-    const opts = [1, 1.5, 2, 3, 4].filter(z => z >= caps.zoom.min && z <= caps.zoom.max);
-    if (opts.length < 2) return;
-    sel.innerHTML = '';
-    opts.forEach(z => { const o = document.createElement('option'); o.value = z; o.textContent = z + '×'; sel.appendChild(o); });
-    if (!opts.includes(S.camZoom)) S.camZoom = opts.includes(1) ? 1 : opts[0];
-    sel.value = S.camZoom;
-    row.hidden = false;
-    applyZoom();
+    if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) zoomCaps = caps.zoom;
+    $('zoomCtl').hidden = false;
+    if (zoomCaps) {
+      // the saved wicket was drawn at the saved zoom, so go back to it without rescaling
+      let cur = null;
+      try { cur = tr.getSettings().zoom; } catch (e) {}
+      const want = S.camZoom || 1;
+      S.camZoom = cur || zoomCaps.min;
+      applyCamZoom(want, false);
+    }
+    updateZoomLabel();
   }
+  async function applyCamZoom(z, rescale = true) {
+    if (!zoomCaps) return;
+    zoomWant = { z: Math.min(zoomCaps.max, Math.max(zoomCaps.min, z)), rescale };
+    if (zoomBusy) return; // a newer request is picked up by the loop below
+    zoomBusy = true;
+    while (zoomWant) {
+      const w = zoomWant; zoomWant = null;
+      if (Math.abs(w.z - S.camZoom) < 0.01) continue;
+      const tr = camTrack(); if (!tr) break;
+      try { await tr.applyConstraints({ advanced: [{ zoom: w.z }] }); } catch (e) { break; }
+      const k = w.z / S.camZoom; S.camZoom = w.z;
+      if (w.rescale) scaleOverlays(k);
+      // the picture changed: restart motion and the drift reference once it settles
+      ref = null; avg = null; recent = []; refHoldUntil = performance.now() + 700; prevValid = false; tracks = [];
+      updateZoomLabel();
+    }
+    zoomBusy = false;
+    save(); updateZoomLabel();
+  }
+  function scaleOverlays(k) {
+    bakeOffset();
+    const sc = v => 0.5 + (v - 0.5) * k;
+    if (wk) { wk = { x: sc(wk.x), y: sc(wk.y), h: wk.h * k }; sizeLimitsFromWicket(); }
+    if (wides) wides = { xl: sc(wides.xl), xr: sc(wides.xr), y: sc(wides.y) };
+    rejudge();
+  }
+  function zoomBy(f) {
+    if (zoomCaps) applyCamZoom(S.camZoom * f);
+    else zoomViewAbout(stageEl.clientWidth / 2, stageEl.clientHeight / 2, view.z * f);
+  }
+  function updateZoomLabel() { $('zoomLbl').textContent = (zoomCaps ? S.camZoom : view.z).toFixed(1) + '×'; }
+  $('zoomIn').onclick = () => zoomBy(1.25);
+  $('zoomOut').onclick = () => zoomBy(1 / 1.25);
 
   function stopSource() {
     running = false;
@@ -609,7 +661,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     [prev, cur] = [cur, prev];
     updateAvg(prev);
     if (wk) {
-      if (!ref) captureRef();
+      if (!ref) { if (performance.now() > refHoldUntil) captureRef(); }
       else if (++frameNo % 10 === 0) checkDrift(avg);
     }
 
@@ -1053,6 +1105,41 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       dctx.restore();
     }
 
+    // selection: highlighted wide line(s), the dot between the lines (grabs both), the wicket outline
+    if (!mode) {
+      const px = W / Math.max(1, disp.clientWidth) / view.z; // canvas units per on-screen pixel
+      if (wn) {
+        const my = wn.y * H, mx = (wn.xl + wn.xr) / 2 * W;
+        for (const [k, x] of [['L', wn.xl], ['R', wn.xr]]) {
+          if (sel !== k && sel !== 'both') continue;
+          dctx.save();
+          dctx.strokeStyle = '#fff'; dctx.lineWidth = 3 * px;
+          dctx.beginPath(); dctx.moveTo(x * W, 0); dctx.lineTo(x * W, H); dctx.stroke();
+          dctx.fillStyle = '#FF9F1C'; dctx.strokeStyle = '#fff'; dctx.lineWidth = 2 * px;
+          dctx.beginPath(); dctx.arc(x * W, my, 11 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
+          dctx.restore();
+        }
+        dctx.save();
+        dctx.strokeStyle = '#FF9F1C'; dctx.lineWidth = 2 * px; dctx.setLineDash([4 * px, 4 * px]);
+        dctx.beginPath(); dctx.moveTo(wn.xl * W, my); dctx.lineTo(wn.xr * W, my); dctx.stroke();
+        dctx.setLineDash([]);
+        dctx.fillStyle = sel === 'both' ? '#FF9F1C' : 'rgba(10,20,14,0.85)'; dctx.strokeStyle = sel === 'both' ? '#fff' : '#FF9F1C';
+        dctx.beginPath(); dctx.arc(mx, my, 9 * px, 0, Math.PI * 2); dctx.fill(); dctx.stroke();
+        dctx.restore();
+      }
+      if (sel === 'wk') {
+        const r = wkRect(W, H);
+        if (r) {
+          dctx.save();
+          dctx.strokeStyle = '#F3C433'; dctx.lineWidth = 2.5 * px; dctx.setLineDash([6 * px, 4 * px]);
+          const g = 6 * px;
+          dctx.strokeRect(r.x0 - g, r.y0 - g, r.w + 2 * g, r.h + 2 * g);
+          dctx.restore();
+        }
+      }
+    }
+
+
     // the ball that was tapped, with its distance
     if (ballMark && (mode === 'ball' || nowMs < previewUntil)) {
       const bx = ballMark.x * W, by = ballMark.y * H, br = Math.max(lw * 4, ballMark.d * W);
@@ -1155,22 +1242,114 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   }
   const normRect = (a, b) => ({ x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) });
 
+  // ---------- touch: select, move, pinch ----------
+  // Nothing on the picture moves until it's selected with a tap; small finger wobbles are ignored; moves follow
+  // the finger at half speed. Tap picks the nearest thing (wicket, a wide line, or the dot between the lines for
+  // both). Drag moves the selection; pinch opens/closes both wide lines or resizes the wicket; with nothing
+  // selected, pinch zooms and (when magnified) drag pans.
+  const ptrs = new Map();
+  let gest = null, modePtr = null;
+  const GAIN = 0.5, DEAD = 10;
+  const stageXY = e => { const r = stageEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  function hitTest(s) {
+    const c = [];
+    const wn = widesNow();
+    if (wn) {
+      const L = toScreen(wn.xl, wn.y), R = toScreen(wn.xr, wn.y), M = { x: (L.x + R.x) / 2, y: L.y };
+      const dm = Math.hypot(s.x - M.x, s.y - M.y); if (dm < 28) c.push(['both', dm * 0.5]);
+      const dl = Math.abs(s.x - L.x); if (dl < 24) c.push(['L', dl]);
+      const dr = Math.abs(s.x - R.x); if (dr < 24) c.push(['R', dr]);
+    }
+    const r = wkRect(1, 1);
+    if (r) {
+      const a = toScreen(r.x0, r.y0), b = toScreen(r.x1, r.y1);
+      const d = Math.hypot(Math.max(a.x - s.x, 0, s.x - b.x), Math.max(a.y - s.y, 0, s.y - b.y));
+      if (d < 20) c.push(['wk', d]);
+    }
+    c.sort((u, v) => u[1] - v[1]);
+    return c.length ? c[0][0] : null;
+  }
+  function selHint() {
+    if (sel === 'wk') hint('Wicket: drag to move, pinch to resize. Tap elsewhere when done.');
+    else if (sel === 'both') hint('Both wide lines: drag to move, pinch to open or close.');
+    else if (sel) hint('Wide line: drag to move it. Tap elsewhere when done.');
+    else hint(null);
+  }
+  function pinchInfo() {
+    const [a, b] = [...ptrs.values()];
+    return { d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), dx: Math.max(10, Math.abs(a.x - b.x)), m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  }
+  function moveSel(dx, dy) { // stage pixels -> picture fractions, at half speed
+    const fx = dx * GAIN / (view.z * stageEl.clientWidth), fy = dy * GAIN / (view.z * stageEl.clientHeight);
+    if (sel === 'wk' && wk) wk = { x: wk.x + fx, y: wk.y + fy, h: wk.h };
+    else if (!wides) return;
+    else if (sel === 'both') wides = { xl: wides.xl + fx, xr: wides.xr + fx, y: wides.y + fy };
+    else if (sel === 'L') wides = { xl: Math.min(wides.xl + fx, wides.xr - 0.005), xr: wides.xr, y: wides.y + fy };
+    else if (sel === 'R') wides = { xl: wides.xl, xr: Math.max(wides.xr + fx, wides.xl + 0.005), y: wides.y + fy };
+    gest.changed = true;
+  }
+  function doPinch() {
+    const p = pinchInfo(), g = gest, r = p.d / g.d0;
+    if (sel === 'both' && g.wides0) {
+      const c = (g.wides0.xl + g.wides0.xr) / 2;
+      const half = Math.max(0.003, (g.wides0.xr - g.wides0.xl) / 2 * Math.pow(p.dx / g.dx0, GAIN));
+      wides = { xl: c - half, xr: c + half, y: g.wides0.y };
+      g.changed = true;
+    } else if (sel === 'wk' && g.wk0) {
+      wk = { x: g.wk0.x, y: g.wk0.y, h: Math.max(0.01, g.wk0.h * Math.pow(r, GAIN)) };
+      g.changed = true; g.resized = true;
+    } else if (!sel) {
+      if (zoomCaps) applyCamZoom(g.camZ0 * r);
+      else zoomViewAbout(p.m.x, p.m.y, g.viewZ0 * r);
+    }
+  }
+  function finishEdit() {
+    if (gest && gest.changed) { if (gest.resized) sizeLimitsFromWicket(); save(); rejudge(); }
+  }
   disp.addEventListener('pointerdown', e => {
-    const p = normPt(e);
-    if (mode) { dragStart = p; dragNow = p; disp.setPointerCapture(e.pointerId); return; }
-    if (wk) {
-      const r = wkRect(1, 1);
-      const padX = Math.max(0.03, r.w), padY = 0.03;
-      if (p.x >= r.x0 - padX && p.x <= r.x1 + padX && p.y >= r.y0 - padY && p.y <= r.y1 + padY) {
-        moveOff = { dx: wk.x - p.x, dy: wk.y - p.y };
-        disp.setPointerCapture(e.pointerId);
-      }
+    disp.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, stageXY(e));
+    if (mode) {
+      if (ptrs.size === 1) { modePtr = e.pointerId; const p = normPt(e); dragStart = p; dragNow = p; }
+      return;
+    }
+    if (ptrs.size === 1) { const s = stageXY(e); gest = { type: 'down', start: s, last: s }; }
+    else if (ptrs.size === 2) {
+      const p = pinchInfo();
+      gest = { type: 'pinch', d0: p.d, dx0: p.dx, camZ0: S.camZoom, viewZ0: view.z, wides0: wides && { ...wides }, wk0: wk && { ...wk } };
     }
   });
   disp.addEventListener('pointermove', e => {
-    if (dragStart) { dragNow = normPt(e); return; }
-    if (moveOff) { const p = normPt(e); wk = { x: p.x + moveOff.dx, y: p.y + moveOff.dy, h: wk.h }; }
+    if (!ptrs.has(e.pointerId)) return;
+    const s = stageXY(e);
+    ptrs.set(e.pointerId, s);
+    if (mode) { if (e.pointerId === modePtr && dragStart) dragNow = normPt(e); return; }
+    if (!gest) return;
+    if (gest.type === 'pinch') { if (ptrs.size >= 2) doPinch(); return; }
+    if (gest.type === 'down' && Math.hypot(s.x - gest.start.x, s.y - gest.start.y) > DEAD) { gest.type = 'drag'; gest.last = s; return; }
+    if (gest.type === 'drag') {
+      const dx = s.x - gest.last.x, dy = s.y - gest.last.y;
+      gest.last = s;
+      if (sel) moveSel(dx, dy);
+      else if (view.z > 1) panView(dx, dy);
+    }
   });
+  function pointerEnd(e) {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if (mode) {
+      if (e.pointerId === modePtr) { modePtr = null; if (e.type === 'pointercancel') dragStart = dragNow = null; else endPointer(); }
+      return;
+    }
+    if (!gest) return;
+    if (gest.type === 'pinch' && ptrs.size) { gest.type = 'after'; return; } // ignore the finger left behind
+    if (ptrs.size) return;
+    if (gest.type === 'down' && e.type !== 'pointercancel') { sel = hitTest(gest.start); selHint(); }
+    else finishEdit();
+    gest = null;
+  }
+  disp.addEventListener('pointerup', pointerEnd);
+  disp.addEventListener('pointercancel', pointerEnd);
   // the box's height sets the wicket (and the distance); it sits on the box's bottom edge
   const boxToWicket = b => ({ x: (b.x0 + b.x1) / 2, y: b.y1, h: b.y1 - b.y0 });
   function placeWicket(w) {
@@ -1185,18 +1364,17 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     flash('Wicket set' + (D ? ', ' + D.toFixed(1) + ' m away' : '') + (wides ? '' : '. Next: Wide markers (optional)'), 4000);
   }
   function endPointer() {
-    if (moveOff) { moveOff = null; save(); rejudge(); return; }
     if (!dragStart || !dragNow) { dragStart = dragNow = null; return; }
     const cr = disp.getBoundingClientRect();
     const isTap = Math.hypot((dragNow.x - dragStart.x) * cr.width, (dragNow.y - dragStart.y) * cr.height) < 12;
     if (mode === 'wicket') {
       const b = normRect(dragStart, dragNow);
       if (!isTap && b.y1 - b.y0 > 0.01) placeWicket(boxToWicket(b));
-      else if (isTap && viewZoom === 1) { setView(PICK_ZOOM, dragStart); hint('Now draw a box around the stumps'); }
+      else if (isTap && !pickZoomed && view.z < 2) { pickZoom(dragStart); hint('Now draw a box around the stumps'); }
       else hint('Drag from the top of the stumps down to the ground');
     } else if (mode === 'wide') {
       if (!isTap) { /* ignore drags */ }
-      else if (viewZoom === 1 && !wideTap) { setView(PICK_ZOOM, dragStart); hint('Tap the wide line on one side'); }
+      else if (!pickZoomed && view.z < 2 && !wideTap) { pickZoom(dragStart); hint('Tap the wide line on one side'); }
       else if (!wideTap) { wideTap = dragStart; hint('Now tap the wide line on the other side'); }
       else if (Math.abs(dragStart.x - wideTap.x) < 0.01) hint('Tap the wide line on the other side of the pitch');
       else {
@@ -1215,10 +1393,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     }
     dragStart = dragNow = null;
   }
-  disp.addEventListener('pointerup', endPointer);
-  disp.addEventListener('pointercancel', () => { dragStart = dragNow = null; moveOff = null; });
 
-  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) } });
+  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), sel, view: { ...view }, camZoom: S.camZoom });
  // for testing
   updateBoard();
   requestAnimationFrame(drawLoop);
