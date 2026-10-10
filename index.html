@@ -55,6 +55,7 @@ header p{margin:0;color:var(--muted);font-size:.95rem}
   header{display:none}
   .stage{max-width:min(100%, calc((100vh - 24px) * var(--ar,1.7778)));max-width:min(100%, calc((100svh - 24px) * var(--ar,1.7778)))}
 }
+.view{position:absolute;inset:0;transition:transform .25s ease}
 .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .stage video{object-fit:fill}
 .stage canvas{touch-action:none}
@@ -125,11 +126,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     <section>
       <div class="stage-wrap" id="stageWrap">
         <div class="stage" id="stage">
-          <video id="vid" playsinline muted autoplay></video>
-          <canvas id="disp" aria-label="Camera view with wicket and ball overlay"></canvas>
+          <div class="view" id="view">
+            <video id="vid" playsinline muted autoplay></video>
+            <canvas id="disp" aria-label="Camera view with wicket and ball overlay"></canvas>
+          </div>
           <div class="empty" id="empty">
-            <h2>Set up behind the stumps</h2>
-            <p>Fix your phone 2 to 4 metres behind the stumps, about stump height, looking down the pitch. Then start the camera or open a clip.</p>
+            <h2>Set up at the bowler's end</h2>
+            <p>Put your phone on a stand behind the bowler's stumps, where the umpire stands, looking down the pitch at the batter's stumps. Then start the camera or open a clip.</p>
             <div class="row">
               <button id="camBtn2">Use camera</button>
               <button class="ghost" id="fileBtn2">Open video</button>
@@ -153,7 +156,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
         <button class="ghost" id="wideBtn">Wide markers</button>
         <button class="ghost" id="resetBtn">Clear</button>
       </div>
-      <p class="small tools-help">Draw a box around the stumps with your finger. Then tap Wide markers and tap the wide line on each side.</p>
+      <p class="small tools-help">Draw wicket: tap the far stumps to zoom in, then draw a box around them. Wide markers: tap the batter's crease, then each wide line.</p>
+
       <p class="err" id="err"></p>
     </section>
 
@@ -175,20 +179,24 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
           <button class="ghost" id="fileBtn">Open video</button>
           <input type="file" id="file" accept="video/*" hidden>
         </div>
-        <p class="small">Use the normal 1× lens, not ultra-wide. Small wobbles are fine. If the phone gets knocked, draw the wicket again.</p>
+        <label class="field" id="zoomRow" hidden>Camera zoom
+          <select id="camZoom" aria-label="Camera zoom"></select>
+        </label>
+        <p class="small">Use a stand or tripod. Small wobbles are fine. If the phone gets knocked, draw the wicket again. Zoom 2× helps the far wicket and ball show up bigger.</p>
       </div>
 
       <div class="card">
         <h3>Setup</h3>
         <ol class="steps">
-          <li>Tap Draw wicket and draw a box around the stumps with your finger, from the bails down to the ground.</li>
-          <li>Optional: tap Wide markers, then tap the wide line on each side of the pitch.</li>
-          <li>Bowl. Only balls coming towards the stumps are judged.</li>
+          <li>Put the phone behind the bowler's stumps (the umpire's spot), looking at the batter's stumps.</li>
+          <li>Tap Draw wicket, tap the far stumps to zoom in, then draw a box around them with your finger.</li>
+          <li>Optional: tap Wide markers, tap near the batter's crease to zoom in, then tap the wide line on each side.</li>
+          <li>Bowl. Only balls travelling towards the batter's wicket are judged.</li>
         </ol>
-        <label class="field">Measured distance to stumps (m)
-          <input type="number" id="measured" min="0.5" max="30" step="0.05" placeholder="optional">
+        <label class="field">Phone distance behind the bowler's stumps (m)
+          <input type="number" id="behind" min="0" max="15" step="0.1" value="2">
         </label>
-        <p class="small">Distance is estimated from the stumps' height in the picture. If you measure the real distance with a tape, enter it once and the estimate locks to your phone's lens.</p>
+        <p class="small">The far stumps are a pitch length (20.12 m) plus this distance away.</p>
       </div>
 
       <details class="card">
@@ -234,8 +242,10 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   // Real-world sizes in metres
   const BALL = 0.072, STUMP_H = 0.711, STUMP_W = 0.2286;
   const DEFAULT_K = 0.5 / Math.tan(65 / 2 * Math.PI / 180); // focal length / long side, typical 1x phone lens
-  const PROC_W = 640, MAX_MISS = 3, MIN_PTS = 5, MAX_TRACKS = 12, SHAKE_R = 6;
-  const CREASE = 1.22; // popping crease is 1.22 m in front of the stumps
+  const PROC_W = 960, MAX_MISS = 3, MIN_PTS = 5, MAX_TRACKS = 12, SHAKE_R = 8;
+  const PITCH = 20.12;  // stumps to stumps
+  const CREASE = 1.22;  // batter's popping crease is 1.22 m in front of the far stumps (nearer the camera)
+  const G = 9.81, PICK_ZOOM = 3;
 
   let PW = PROC_W, PH = 360;
   let prev, cur, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
@@ -243,28 +253,36 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
   let mode = null, dragStart = null, dragNow = null, moveOff = null;
   let wideTap = null, wkFlashUntil = 0, previewUntil = 0, ballMark = null;
-  let zone = null, wk = null, kFocal = null, wides = null;
-  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false };
+  let zone = null, wk = null, wides = null, viewZoom = 1;
+  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1 };
 
   // ---------- persistence ----------
-  function save() { try { localStorage.setItem('wkt-v2', JSON.stringify({ S, zone, wk, kFocal, wides })); } catch (e) {} }
+  // v3: camera at the bowler's end, looking at the batter's wicket
+  function save() { try { localStorage.setItem('wkt-v3', JSON.stringify({ S, zone, wk, wides })); } catch (e) {} }
   try {
-    const o = JSON.parse(localStorage.getItem('wkt-v2') || 'null');
-    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; kFocal = o.kFocal || null; wides = o.wides || null; }
+    const o = JSON.parse(localStorage.getItem('wkt-v3') || 'null');
+    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; wides = o.wides || null; }
   } catch (e) {}
   S.showMask = false;
 
   // ---------- geometry ----------
-  const focalProc = () => (kFocal || DEFAULT_K) * Math.max(PW, PH);
+  // The far stumps are a known distance away, so the drawn wicket's height gives the lens's focal length
+  // (in processing pixels). This works whatever zoom the camera is on.
+  const stumpsDist = () => PITCH + S.behind;
+  const focalProc = () => wk ? stumpsDist() * wk.h * PH / STUMP_H : DEFAULT_K * Math.max(PW, PH);
   function wkRect(W, H) {
     if (!wk) return null;
     const h = wk.h * H, w = h * STUMP_W / STUMP_H, bx = wk.x * W, by = wk.y * H;
     return { x0: bx - w / 2, x1: bx + w / 2, y0: by - h, y1: by, w, h, bx, by };
   }
-  function wicketDist() {
-    const r = wkRect(PW, PH);
-    if (!r || r.h < 2) return null;
-    return focalProc() * STUMP_H / r.h;
+  const wicketDist = () => wk ? stumpsDist() : null;
+  // ball size limits from the geometry: biggest when just released near the camera, smallest at the far stumps
+  function sizeLimitsFromWicket() {
+    const f = focalProc();
+    const dNear = f * BALL / Math.max(2, S.behind + 1.2), dFar = f * BALL / stumpsDist();
+    S.maxA = Math.max(40, Math.min(3000, Math.round(Math.PI / 4 * Math.pow(dNear * 1.6, 2) / 20) * 20));
+    S.minA = Math.max(1, Math.min(40, Math.round(Math.PI / 4 * dFar * dFar * 0.4)));
+    syncSliders();
   }
 
   // ---------- UI bindings ----------
@@ -284,17 +302,23 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   $('wideBtn').onclick = () => setMode(mode === 'wide' ? null : 'wide');
   $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
-  $('resetBtn').onclick = () => { zone = null; wk = null; wides = null; kFocal = null; ballMark = null; $('measured').value = ''; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
+  $('resetBtn').onclick = () => { zone = null; wk = null; wides = null; ballMark = null; setMode(null); save(); rejudge(); flash('Wicket and markers cleared'); };
   $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
-  $('measured').addEventListener('change', () => {
-    const v = parseFloat($('measured').value);
-    const r = wkRect(PW, PH);
-    if (!(v > 0)) { kFocal = null; save(); rejudge(); return; }
-    if (!r) { setError('Place the wicket first, then enter the measured distance.'); return; }
-    setError('');
-    kFocal = (v * r.h / STUMP_H) / Math.max(PW, PH);
-    save(); rejudge(); flash('Distance locked to ' + v + ' m');
+  $('behind').value = S.behind;
+  $('behind').addEventListener('change', () => {
+    const v = parseFloat($('behind').value);
+    if (!(v >= 0 && v <= 15)) { $('behind').value = S.behind; return; }
+    S.behind = v;
+    if (wk) sizeLimitsFromWicket();
+    save(); rejudge(); flash('Far stumps ' + stumpsDist().toFixed(1) + ' m away');
   });
+  $('camZoom').addEventListener('change', async () => {
+    S.camZoom = +$('camZoom').value;
+    await applyZoom();
+    wk = null; wides = null; save(); rejudge();
+    flash('Zoom changed. Draw the wicket again.', 3000);
+  });
+
   $('playBtn').onclick = () => { video.paused ? video.play() : video.pause(); };
   $('rate').addEventListener('change', () => { video.playbackRate = +$('rate').value; });
   $('seek').addEventListener('input', () => { if (video.duration) video.currentTime = $('seek').value / 1000 * video.duration; });
@@ -308,16 +332,24 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   function hint(t) { const h = $('hint'); if (!t) { h.hidden = true; return; } h.textContent = t; h.hidden = false; }
   function flash(t, ms) { hint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!mode) hint(null); }, ms || 1800); }
   function setError(t) { $('err').textContent = t || ''; }
+  // magnify the picture around a point, so far-away stumps and crease lines are easy to mark
+  function setView(z, p) {
+    const v = $('view');
+    if (p) v.style.transformOrigin = (p.x * 100).toFixed(2) + '% ' + (p.y * 100).toFixed(2) + '%';
+    v.style.transform = z > 1 ? 'scale(' + z + ')' : '';
+    viewZoom = z;
+  }
   function setMode(m) {
     mode = m; wideTap = null;
+    if (viewZoom !== 1) setView(1);
     $('wkBtn').classList.toggle('on', m === 'wicket');
     $('wideBtn').classList.toggle('on', m === 'wide');
     $('ballBtn').classList.toggle('on', m === 'ball');
     $('zoneBtn').classList.toggle('on', m === 'zone');
     $('stage').classList.toggle('picking', !!m);
     if (m && !running) setError('Start the camera or open a video first.');
-    if (m === 'wicket') hint('Draw a box around the stumps');
-    else if (m === 'wide') hint('Tap the wide line on one side');
+    if (m === 'wicket') hint('Tap the far stumps to zoom in');
+    else if (m === 'wide') hint('Tap the batter\'s crease to zoom in');
     else if (m === 'ball') hint('Hold a ball still and tap it');
     else if (m === 'zone') hint('Drag a box over the area the ball travels through');
     else hint(null);
@@ -334,7 +366,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: 'environment' }, frameRate: { ideal: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: { ideal: 'environment' }, frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       });
     } catch (err) {
       const name = err && err.name;
@@ -349,11 +381,38 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     $('filebar').hidden = true; $('stageWrap').classList.remove('has-bar');
     if (!video.videoWidth) await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
     try { await video.play(); } catch (e) {}
+    setupZoom();
+
     onSourceReady();
+  }
+
+  // the phone camera's own zoom, where the browser offers it (Chrome on Android does)
+  function camTrack() { return stream ? stream.getVideoTracks()[0] : null; }
+  async function applyZoom() {
+    const tr = camTrack();
+    if (!tr || $('zoomRow').hidden) return;
+    try { await tr.applyConstraints({ advanced: [{ zoom: S.camZoom }] }); } catch (e) {}
+  }
+  function setupZoom() {
+    const row = $('zoomRow'), sel = $('camZoom'), tr = camTrack();
+    row.hidden = true;
+    let caps = null;
+    try { caps = tr && tr.getCapabilities ? tr.getCapabilities() : null; } catch (e) {}
+    if (!caps || !caps.zoom) return;
+    const opts = [1, 1.5, 2, 3, 4].filter(z => z >= caps.zoom.min && z <= caps.zoom.max);
+    if (opts.length < 2) return;
+    sel.innerHTML = '';
+    opts.forEach(z => { const o = document.createElement('option'); o.value = z; o.textContent = z + '×'; sel.appendChild(o); });
+    if (!opts.includes(S.camZoom)) S.camZoom = opts.includes(1) ? 1 : opts[0];
+    sel.value = S.camZoom;
+    row.hidden = false;
+    applyZoom();
   }
 
   function openFile(f) {
     setError('');
+    $('zoomRow').hidden = true;
+
     stopSource();
     fileURL = URL.createObjectURL(f);
     sourceType = 'file';
@@ -425,7 +484,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   // How far the whole picture moved since the last frame (camera wobble), in processing pixels.
   // Returns {dx, dy} such that cur(x, y) matches prev(x - dx, y - dy).
   function estimateShift(cur, old) {
-    const R = SHAKE_R, st = 6;
+    const R = SHAKE_R, st = 8;
+
     let best = Infinity, bdx = 0, bdy = 0;
     for (let dy = -R; dy <= R; dy++) {
       for (let dx = -R; dx <= R; dx++) {
@@ -604,10 +664,9 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
     const diam = (2 * Math.sqrt(area / Math.PI) + Math.min(bw, bh)) / 2;
     const dist = focalProc() * BALL / diam;
-    // largest size a ball can be: about twice its diameter at the stumps (blur, smear), or this ball's size
-    const Dw = wicketDist();
-    const dAtStumps = Dw ? focalProc() * BALL / Dw : diam;
-    S.maxA = Math.max(40, Math.min(3000, Math.round(Math.max(Math.PI / 4 * Math.pow(dAtStumps * 2, 2), area * 2) / 20) * 20));
+    // size limits: from the wicket geometry when there is one, and never smaller than this ball
+    if (wk) sizeLimitsFromWicket();
+    S.maxA = Math.max(S.maxA, Math.min(3000, Math.round(area * 2 / 20) * 20));
     syncSliders(); save();
     ballMark = { x: sx / area / PW, y: sy / area / PH, d: diam / PW, dist };
     previewUntil = performance.now() + 5000;
@@ -623,14 +682,19 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
       const px = L.x + tr.vx * steps, py = L.y + tr.vy * steps;
       const sp = Math.hypot(tr.vx, tr.vy);
       const gate = tr.pts.length < 2 ? Math.max(PW, PH) * 0.1 : Math.max(10, sp * 0.9 * steps + 8);
-      let best = -1, bd = gate;
+      // at the bounce the ball changes direction, so also accept a candidate at a similar speed
+      // from the last sighting in any direction
+      const turn = tr.pts.length < 2 ? 0 : sp * 1.4 * steps + 8;
+      let best = -1, bd = Infinity;
       for (let k = 0; k < cands.length; k++) {
         if (used[k]) continue;
         const ratio = cands[k].d / L.d;
         if (ratio > 2.2 || ratio < 0.45) continue;
         const dd = Math.hypot(cands[k].x - px, cands[k].y - py);
+        if (dd >= gate && Math.hypot(cands[k].x - L.x, cands[k].y - L.y) >= turn) continue;
         if (dd < bd) { bd = dd; best = k; }
       }
+
       if (best >= 0) {
         used[best] = true;
         const c = cands[best];
@@ -647,14 +711,13 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
   // the live trail is only drawn for something that already looks like a delivery:
-  // a few frames long, getting bigger and moving in a fairly straight line
+  // a few frames long and getting smaller as it travels away towards the far wicket
   function looksLikeBall(tr) {
     const p = tr.pts, n = p.length;
-    if (n < 4 || p[n - 1].d < p[0].d * 1.08) return false;
+    if (n < 4 || p[n - 1].d > p[0].d * 0.92) return false;
     let path = 0;
     for (let k = 1; k < n; k++) path += Math.hypot(p[k].x - p[k - 1].x, p[k].y - p[k - 1].y);
-    const net = Math.hypot(p[n - 1].x - p[0].x, p[n - 1].y - p[0].y);
-    return path < 2 || net / path > 0.75;
+    return path > Math.max(PW, PH) * 0.02;
   }
   function bestActive() {
     let b = null;
@@ -666,11 +729,11 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 
   function finalize(tr) {
     const pts = tr.pts;
-    if (pts.length < MIN_PTS) return;
-    // only balls coming towards the camera count: they get bigger as they approach.
-    // Throws across the picture, people walking and balls going away are ignored.
+    if (pts.length < MIN_PTS || !wk) return; // nothing to judge against until the wicket is drawn
+    // only balls travelling away from the camera, towards the far wicket, count: they get smaller.
+    // Throws back to the bowler, people walking and balls going sideways are ignored.
     const grow = median(pts.slice(-3).map(p => p.d)) / median(pts.slice(0, 3).map(p => p.d));
-    if (grow < 1.15) return;
+    if (grow > 0.85) return;
     const res = judge(pts);
     if (res.offTarget) return; // heading nowhere near the stumps or the wide markers
     const del = { id: nextId++, pts: pts.map(p => ({ ...p })), at: new Date(), res };
@@ -680,48 +743,57 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     renderLog(); updateBoard(); popVerdict(del);
   }
 
-  function fit(T, V) {
-    const m = T.length; if (m < 3) return null;
-    let st = 0, sv = 0, stt = 0, stv = 0;
-    for (let i = 0; i < m; i++) { st += T[i]; sv += V[i]; stt += T[i] * T[i]; stv += T[i] * V[i]; }
-    const den = m * stt - st * st; if (den <= 1e-12) return null;
-    const b = (m * stv - st * sv) / den;
-    return { a: (sv - b * st) / m, b };
+  // least-squares straight line v = a + b t, optionally weighted
+  function fit(T, V, Wt) {
+    const m = T.length; if (m < 2) return null;
+    let sw = 0, st = 0, sv = 0, stt = 0, stv = 0;
+    for (let i = 0; i < m; i++) { const w = Wt ? Wt[i] : 1; sw += w; st += w * T[i]; sv += w * V[i]; stt += w * T[i] * T[i]; stv += w * T[i] * V[i]; }
+    const den = sw * stt - st * st; if (den <= 1e-12 * sw * sw) return null;
+    const b = (sw * stv - st * sv) / den;
+    return { a: (sv - b * st) / sw, b };
   }
 
-  // Would the ball have hit the stumps?
+  // Would the ball have hit the far stumps?
+  // Depth: the ball travels down the pitch at a near-steady speed, so its distance from the camera is a
+  // straight line in time. That line is fitted to the ball's size in each frame, trusting the big, close
+  // sightings most. Sideways and height: after the bounce the path is a straight line plus gravity.
   function judge(pts) {
     const r = wkRect(PW, PH);
     if (!r) return { verdict: null, reason: 'Draw the wicket to get a decision' };
-    const f = focalProc(), Dw = f * STUMP_H / r.h;
-    const seg = pts.slice(-Math.min(10, pts.length));
-    const t0 = seg[0].t;
-    const cx = PW / 2, cy = PH / 2;
-    const T = seg.map(p => p.t - t0), Z = seg.map(p => f * BALL / p.d);
-    // back-project into 3D (metres), where the ball's path is close to a straight line
-    const X = seg.map((p, i) => (p.x - cx) * Z[i] / f), Y = seg.map((p, i) => (p.y - cy) * Z[i] / f);
-    const fz = fit(T, Z), fx = fit(T, X), fy = fit(T, Y);
-    if (!fz || !fx || !fy) return { verdict: null, reason: 'Not enough frames on the ball' };
-    if (fz.b >= 0) return { verdict: null, offTarget: true, reason: 'Ball wasn\'t travelling towards the stumps' };
-    const tl = T[T.length - 1];
-    const zLast = fz.a + fz.b * tl;
-    if (zLast - Dw > 6) return { verdict: null, reason: 'Ball was lost too far from the stumps to project' };
+    const f = focalProc(), Dw = stumpsDist();
+    const n = pts.length, t0 = pts[0].t, cx = PW / 2, cy = PH / 2;
+    const T = pts.map(p => p.t - t0);
+    const fz = fit(T, pts.map(p => f * BALL / p.d), pts.map(p => Math.pow(p.d, 4)));
+    if (!fz || fz.b <= 0) return { verdict: null, offTarget: true, reason: 'Ball wasn\'t travelling towards the wicket' };
+    if (fz.b < 5 || fz.b > 60) return { verdict: null, reason: 'Couldn\'t judge the ball\'s speed' };
+    const zAt = t => fz.a + fz.b * t;
+    const tl = T[n - 1], zLast = zAt(tl);
+    if (Dw - zLast > 8) return { verdict: null, reason: 'Ball was lost too early to judge' };
     const tc = (Dw - fz.a) / fz.b;
     if (tc < -0.05) return { verdict: null, reason: 'Ball was already past the stumps when tracking started' };
+    // bounce = lowest point in the picture; use what came after it (if enough), else what came before
+    let kb = 0;
+    for (let k = 1; k < n; k++) if (pts[k].y > pts[kb].y) kb = k;
+    const seg = n - kb >= 3 ? pts.slice(kb) : pts.slice(0, kb + 1);
+    const sT = seg.map(p => p.t - t0);
+    const fx = fit(sT, seg.map((p, i) => (p.x - cx) * zAt(sT[i]) / f));
+    const fy = fit(sT, seg.map((p, i) => (p.y - cy) * zAt(sT[i]) / f - G / 2 * sT[i] * sT[i]));
+    if (!fx || !fy) return { verdict: null, reason: 'Not enough frames on the ball' };
+    const at = (t, Z) => ({ x: cx + f * (fx.a + fx.b * t) / Z, y: cy + f * (fy.a + fy.b * t + G / 2 * t * t) / Z });
     const projected = tc > tl;
-    const px = cx + f * (fx.a + fx.b * tc) / Dw;
-    let py = cy + f * (fy.a + fy.b * tc) / Dw;
+    const hit = at(tc, Dw);
+    const px = hit.x;
+    let py = hit.y;
     const br = f * BALL / 2 / Dw;
     // where the ball crosses the batter's crease, to compare with the wide markers
-    const Zc = Dw + CREASE, tw = (Zc - fz.a) / fz.b;
-    const wx = cx + f * (fx.a + fx.b * tw) / Zc, wy = cy + f * (fy.a + fy.b * tw) / Zc;
+    const Zc = Dw - CREASE, tw = (Zc - fz.a) / fz.b, cr = at(tw, Zc);
     // ignore anything heading well away from the stumps and the wide markers
     let lo = r.bx - 8 * r.w, hi = r.bx + 8 * r.w, bx = px;
-    if (wides) { const span = (wides.xr - wides.xl) * PW; lo = wides.xl * PW - span / 2; hi = wides.xr * PW + span / 2; bx = wx; }
+    if (wides) { const span = (wides.xr - wides.xl) * PW; lo = wides.xl * PW - span / 2; hi = wides.xr * PW + span / 2; bx = cr.x; }
     if (bx < lo || bx > hi || py < r.y0 - 3 * r.h) return { verdict: null, offTarget: true, reason: 'Ball was heading away from the stumps' };
-    const gap = Math.max(0, zLast - Dw);
-    if (wides && (wx < wides.xl * PW || wx > wides.xr * PW))
-      return { verdict: 'wide', label: 'Wide', x: wx / PW, y: Math.min(wy, wides.y * PH) / PH, r: f * BALL / 2 / Zc / PH, projected: tw > tl, gap: Math.max(0, zLast - Zc), crease: true };
+    const gap = Math.max(0, Dw - zLast);
+    if (wides && (cr.x < wides.xl * PW || cr.x > wides.xr * PW))
+      return { verdict: 'wide', label: 'Wide', x: cr.x / PW, y: Math.min(cr.y, wides.y * PH) / PH, r: f * BALL / 2 / Zc / PH, projected: tw > tl, gap: Math.max(0, Zc - zLast), crease: true };
     if (py > r.y1) py = r.y1 - br; // heading into the ground near the stumps: treat as low
     const inside = px >= r.x0 && px <= r.x1 && py >= r.y0 && py <= r.y1;
     const dxo = Math.max(r.x0 - px, 0, px - r.x1), dyo = Math.max(r.y0 - py, 0, py - r.y1);
@@ -730,7 +802,7 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     if (inside) { verdict = 'hitting'; label = 'Hitting'; }
     else if (out <= br) { verdict = 'clipping'; label = 'Umpire\'s call'; }
     else { verdict = 'missing'; label = dyo > dxo ? 'Going over' : 'Missing'; }
-    return { verdict, label, x: px / PW, y: py / PH, r: br / PH, projected, gap, fit: { fx, fy, tl, tc } };
+    return { verdict, label, x: px / PW, y: py / PH, r: br / PH, projected, gap, speed: fz.b };
   }
 
   function rejudge() { deliveries.forEach(d => { d.res = judge(d.pts); }); renderLog(); updateBoard(); }
@@ -792,9 +864,9 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
 
   // ---------- overlay drawing ----------
   function sizeCanvas() {
-    const r = disp.getBoundingClientRect();
+    // layout size (ignores the pick-zoom transform)
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    const w = Math.max(1, Math.round(disp.clientWidth * dpr)), h = Math.max(1, Math.round(disp.clientHeight * dpr));
     if (disp.width !== w || disp.height !== h) { disp.width = w; disp.height = h; }
   }
   if (window.ResizeObserver) new ResizeObserver(sizeCanvas).observe($('stage'));
@@ -810,8 +882,9 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const W = disp.width, H = disp.height;
     dctx.clearRect(0, 0, W, H);
     if (!running) return;
-    const lw = Math.max(2, Math.min(W, H) / 260);
+    const lw = Math.max(0.8, Math.max(2, Math.min(W, H) / 260) / viewZoom); // thinner lines while zoomed in
     const sx = W / PW, sy = H / PH;
+
 
     const nowMs = performance.now();
     if ((S.showMask || nowMs < previewUntil) && mask && maskImg) {
@@ -986,7 +1059,8 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   // the box's height sets the wicket (and the distance); it sits on the box's bottom edge
   const boxToWicket = b => ({ x: (b.x0 + b.x1) / 2, y: b.y1, h: b.y1 - b.y0 });
   function placeWicket(w) {
-    wk = w; kFocal = null; $('measured').value = '';
+    wk = w;
+    sizeLimitsFromWicket();
     save(); rejudge();
     wkFlashUntil = performance.now() + 3000;
     setMode(null);
@@ -1000,12 +1074,14 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
     const isTap = Math.hypot((dragNow.x - dragStart.x) * cr.width, (dragNow.y - dragStart.y) * cr.height) < 12;
     if (mode === 'wicket') {
       const b = normRect(dragStart, dragNow);
-      if (!isTap && b.y1 - b.y0 > 0.02) placeWicket(boxToWicket(b));
+      if (!isTap && b.y1 - b.y0 > 0.01) placeWicket(boxToWicket(b));
+      else if (isTap && viewZoom === 1) { setView(PICK_ZOOM, dragStart); hint('Now draw a box around the stumps'); }
       else hint('Drag from the top of the stumps down to the ground');
     } else if (mode === 'wide') {
       if (!isTap) { /* ignore drags */ }
+      else if (viewZoom === 1 && !wideTap) { setView(PICK_ZOOM, dragStart); hint('Tap the wide line on one side'); }
       else if (!wideTap) { wideTap = dragStart; hint('Now tap the wide line on the other side'); }
-      else if (Math.abs(dragStart.x - wideTap.x) < 0.03) hint('Tap the wide line on the other side of the pitch');
+      else if (Math.abs(dragStart.x - wideTap.x) < 0.01) hint('Tap the wide line on the other side of the pitch');
       else {
         const a = wideTap, c = dragStart;
         wides = { xl: Math.min(a.x, c.x), xr: Math.max(a.x, c.x), y: (a.y + c.y) / 2 };
@@ -1024,8 +1100,10 @@ details summary{cursor:pointer;font:600 1.25rem/1.1 "Barlow Condensed","Arial Na
   disp.addEventListener('pointerup', endPointer);
   disp.addEventListener('pointercancel', () => { dragStart = dragNow = null; moveOff = null; });
 
+  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc() }); // for testing
   updateBoard();
   requestAnimationFrame(drawLoop);
+
 })();
 </script>
 </body>
