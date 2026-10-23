@@ -162,6 +162,10 @@ details.card[open] summary::after{transform:rotate(225deg)}
 .kinds button{padding:9px 13px;border-radius:999px;background:var(--surface2);color:var(--muted);border:1px solid var(--line2);font-size:.9rem}
 .kinds button.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .demobar .actions{margin-top:10px}
+.srcseg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--surface2);border-radius:12px;padding:4px;margin-bottom:10px}
+.srcseg button{padding:10px 6px;background:transparent;color:var(--muted);border-radius:9px;font-size:.92rem}
+.srcseg button.on{background:var(--surface3);color:var(--ink)}
+#demoSetup{margin-top:10px;width:100%}
 #demoBowl{display:flex;align-items:center;justify-content:center;gap:8px}
 #demoBowl svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
 .rail{flex-direction:column;align-items:center}
@@ -460,6 +464,10 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         <button class="ghost" id="resetBtn">Clear</button>
       </div>
       <div class="demobar" id="demoBar" hidden>
+        <div class="srcseg" id="demoSrc" role="group" aria-label="Demo picture">
+          <button data-src="sim" class="on" aria-pressed="true">Simulated pitch</button>
+          <button data-src="cam" aria-pressed="false">My camera</button>
+        </div>
         <div class="kinds" id="demoKinds" role="group" aria-label="Type of ball">
           <button data-kind="random" class="on">Random</button>
           <button data-kind="hit">Hitting</button>
@@ -472,6 +480,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
           <button class="primary" id="demoBowl"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5c3 2 3 9 0 11M17.5 6.5c-3 2-3 9 0 11"/></svg>Bowl a ball</button>
           <button class="ghost" id="demoExit">Exit demo</button>
         </div>
+        <button class="ghost sm" id="demoSetup" hidden>Adjust wicket on my stumps</button>
         <label class="switch"><input type="checkbox" id="demoAuto"><span></span>Bowl automatically every few seconds</label>
       </div>
 
@@ -744,7 +753,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   // ---------- sources ----------
   async function startCamera() {
     setError('');
-    if (demoOn) exitDemo();
+    if (demo.mode) exitDemo();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError('This browser has no camera access here. Open the page over https in Chrome or Safari.');
       return;
@@ -876,7 +885,8 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     rvfc = null;
     if (!running) return;
     // the camera's own capture time is the most accurate clock for working out the ball's speed
-    const mt = meta && meta.captureTime > 0 ? meta.captureTime / 1000 : meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : now / 1000;
+    // camera demo: the frame and its painted-in virtual ball share one clock (the time it is processed)
+    const mt = demo.mode === 'cam' ? now / 1000 : meta && meta.captureTime > 0 ? meta.captureTime / 1000 : meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : now / 1000;
     if (video.readyState >= 2 && mt !== lastMT) {
       if (mt < lastMT) { prevValid = false; tracks = []; }
       lastMT = mt;
@@ -999,6 +1009,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   function processFrame(t) {
     const t0 = performance.now();
     pctx.drawImage(video, 0, 0, PW, PH);
+    if (demo.mode === 'cam') paintBall(pctx, PW, PH, 0, 0, t * 1000); // camera demo: the virtual ball goes into the tracked frame
     const d = pctx.getImageData(0, 0, PW, PH).data;
     const t1 = performance.now();
     const first = !prevValid;
@@ -1099,7 +1110,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       // growing over white would swallow that too, so measure the ball from its moving pixels alone.
       if (c && c.bad) {
         const big = Math.max(s.bw, s.bh), small = Math.min(s.bw, s.bh);
-        if (big <= dMax && big / small <= 2.5 && s.area / (s.bw * s.bh) >= 0.3) out.push({ x: s.cx, y: s.cy, d: big });
+        if (big <= dMax && big / small <= 2.5 && s.area / (s.bw * s.bh) >= 0.3) out.push({ x: s.cx, y: s.cy, d: big, e: true }); // size from moving pixels only: don't use it for distance
       }
     }
     return out;
@@ -1131,7 +1142,8 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     const fill = area / (bw * bh), asp = Math.max(bw, bh) / Math.min(bw, bh);
     if (fill < 0.35 || asp > 3.5) return { bad: true };
     const dEq = 2 * Math.sqrt(area / Math.PI);
-    return { x: sx / area, y: sy / area, d: (dEq + Math.min(bw, bh)) / 2 };
+    // e: touching the edge of the picture, so only part of the ball is visible and its size can't be trusted
+    return { x: sx / area, y: sy / area, d: (dEq + Math.min(bw, bh)) / 2, e: x0 <= 1 || y0 <= 1 || x1 >= PW - 2 || y1 >= PH - 2 };
   }
 
   // Tap on a still ball: learn its colour, measure it and show its distance
@@ -1225,13 +1237,13 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         if (tr.pts.length < 2) { tr.vx = nvx; tr.vy = nvy; tr.spd = Math.hypot(nvx, nvy); }
         else { tr.vx = 0.5 * tr.vx + 0.5 * nvx; tr.vy = 0.5 * tr.vy + 0.5 * nvy; tr.spd = 0.5 * tr.spd + 0.5 * Math.hypot(nvx, nvy); }
 
-        tr.pts.push({ x: c.x, y: c.y, d: c.d, t });
+        tr.pts.push({ x: c.x, y: c.y, d: c.d, t, e: !!c.e });
         tr.miss = 0;
       } else tr.miss++;
     }
     pruneTracks();
     for (let k = 0; k < cands.length; k++) {
-      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t }], vx: 0, vy: 0, miss: 0 });
+      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t, e: !!cands[k].e }], vx: 0, vy: 0, miss: 0 });
     }
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
@@ -1278,6 +1290,21 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     return { a: (sv - b * st) / sw, b };
   }
 
+  // Distance from the camera over time, Z = a + b t (t from t0), from the ball's size in each sighting. Close
+  // (big) sightings are trusted most; sightings cut off by the edge of the picture are left out, and after a first
+  // fit any sighting more than 8% off the line is dropped and the line refitted.
+  function fitDepth(pts, f, t0) {
+    let use = pts.filter(p => !p.e);
+    if (use.length < 3) use = pts;
+    const run = arr => fit(arr.map(p => p.t - t0), arr.map(p => f * BALL / p.d), arr.map(p => Math.pow(p.d, 4)));
+    let fz = run(use);
+    if (fz && use.length >= 5) {
+      const keep = use.filter(p => { const z = fz.a + fz.b * (p.t - t0); return Math.abs(f * BALL / p.d - z) <= 0.08 * Math.abs(z); });
+      if (keep.length >= 3 && keep.length < use.length) fz = run(keep) || fz;
+    }
+    return fz;
+  }
+
   // Ball speed (m/s) down the pitch, from how fast the ball shrinks as it travels away. Only the part before
   // the bounce is used (the ball slows when it pitches), so this is close to the speed out of the hand.
   function speedOf(pts) {
@@ -1290,7 +1317,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     if (kb < 3 || f * BALL / pts[0].d > stumpsDist() * 0.6) return null;
     const seg = pts.slice(0, kb + 1);
     const t0 = seg[0].t;
-    const fz = fit(seg.map(p => p.t - t0), seg.map(p => f * BALL / p.d), seg.map(p => Math.pow(p.d, 4)));
+    const fz = fitDepth(seg, f, t0);
     return fz && fz.b >= 5 && fz.b <= 60 ? fz.b : null;
   }
 
@@ -1305,7 +1332,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     const f = focalProc(), Dw = stumpsDist();
     const n = pts.length, t0 = pts[0].t, cx = PW / 2, cy = PH / 2;
     const T = pts.map(p => p.t - t0);
-    const fz = fit(T, pts.map(p => f * BALL / p.d), pts.map(p => Math.pow(p.d, 4)));
+    const fz = fitDepth(pts, f, t0);
     if (!fz || fz.b <= 0) return { verdict: null, offTarget: true, reason: 'Ball wasn\'t travelling towards the wicket' };
     if (fz.b < 5 || fz.b > 60) return { verdict: null, reason: 'Couldn\'t judge the ball\'s speed' };
     const zAt = t => fz.a + fz.b * t;
@@ -1515,6 +1542,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     }
 
     // trails
+    if (demo.mode === 'cam') paintBall(dctx, W, H, 0, 0); // and onto the picture, so you can see it
     if (setup) return; // keep the picture clear while setting up
     if (selected) drawDelivery(selected, sx, sy, W, H, lw);
     const live = bestActive();
@@ -1741,14 +1769,14 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     setError('');
     if (mode) setMode(null);
     if (!wk) { wk = defaultWicket(); off = { x: 0, y: 0 }; }
-    $('tools').hidden = true; $('setupPanel').hidden = false; camEl.classList.add('setting');
+    $('tools').hidden = true; $('demoBar').hidden = true; $('setupPanel').hidden = false; camEl.classList.add('setting');
     $('batR').classList.toggle('on', S.hand !== 'L'); $('batL').classList.toggle('on', S.hand === 'L');
     setTarget(t || 'wk'); updateBoard();
   }
   function exitSetup(quiet) {
     if (!setup) return;
     setup = null;
-    $('tools').hidden = false; $('setupPanel').hidden = true; camEl.classList.remove('setting');
+    $('tools').hidden = !!demo.mode; $('demoBar').hidden = !demo.mode; $('setupPanel').hidden = true; camEl.classList.remove('setting');
     resetView(); hint(null);
     if (wk) { bakeOffset(); captureRef(); sizeLimitsFromWicket(); }
     save(); rejudge(); updateSetupBtn();
@@ -1932,7 +1960,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   // were the camera, so the real detection, tracking and judging run on it. Balls get a release height, speed,
   // gravity, a bounce and a slower speed off the pitch. Nothing done in the demo is saved.
   const DM = { W: 960, H: 540, f: 1507, hc: 1.4, cx: 480, cy: 270 };
-  const demo = { canvas: null, ctx: null, bg: null, bgFor: 0, stream: null, timer: null, auto: null, ball: null, kind: 'random', backup: null };
+  const demo = { mode: null, src: 'sim', canvas: null, ctx: null, bg: null, bgFor: 0, stream: null, timer: null, auto: null, ball: null, kind: 'random', backup: null };
   const rnd = (a, b) => a + Math.random() * (b - a);
   function buildDemoScene() {
     const Dw = stumpsDist();
@@ -1965,10 +1993,19 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     g.fillRect(cx - f * 0.11 / Dw, base - sh - 2, f * 0.22 / Dw, 2);
     demo.bg = c; demo.bgFor = Dw;
   }
-  function makeBall(kind) {
+  // Camera geometry for drawing a virtual ball: focal length, camera height above the ground and the camera's
+  // sideways offset from the middle stump. On the simulated pitch they are known; on a live camera they come from
+  // the wicket the user lined up (like the tracker itself).
+  function demoGeometry(W, H) {
+    if (demo.mode === 'sim') return { f: DM.f, cx: DM.cx, cy: DM.cy, X0: 0, hc: DM.hc };
+    const k = wkNow(); if (!k) return null;
+    const Dw = stumpsDist(), f = Dw * k.h * H / STUMP_H, cx = W / 2, cy = H / 2;
+    return { f, cx, cy, X0: (k.x * W - cx) * Dw / f, hc: Math.max(0.4, (k.y * H - cy) * Dw / f) };
+  }
+  function makeBall(kind, hc) {
     const kinds = ['hit', 'hit', 'off', 'wide', 'leg', 'high'];
     if (kind === 'random') kind = kinds[Math.floor(Math.random() * kinds.length)];
-    const offS = S.hand === 'L' ? 1 : -1, Dw = stumpsDist(), hc = DM.hc;
+    const offS = S.hand === 'L' ? 1 : -1, Dw = stumpsDist();
     const V = rnd(20, 36), Z0 = S.behind + 1.5, Y0 = hc - 2.1, Yg = hc - 0.036;
     let Xs = rnd(-0.06, 0.06), Zb = rnd(14.5, 17), e = 0.5;
     if (kind === 'off') Xs = offS * rnd(0.28, 0.55);
@@ -1985,68 +2022,104 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     else { const u = t - b.tb; Z = b.Zb + b.V2 * u; Y = Math.min(b.Yg, b.Yg + b.vyb * u + 4.905 * u * u); }
     return { X: b.X0 + (b.Xs - b.X0) * Math.min(1.2, (Z - b.Z0) / (b.Dw - b.Z0)), Y, Z };
   }
+  // paint the virtual ball (and its shadow) into a picture of size W x H, shifted by (sx, sy)
+  function paintBall(g, W, H, sx, sy, tms) {
+    const b = demo.ball, geo = b && demoGeometry(W, H);
+    if (!b || !geo) return;
+    const p = ballAt(b, ((tms || performance.now()) - b.t0) / 1000);
+    if (p.Z >= b.Zend) { demo.ball = null; $('demoBowl').disabled = false; return; }
+    if (p.Z <= 1) return;
+    const x = geo.cx + geo.f * (geo.X0 + p.X) / p.Z + sx, y = geo.cy + geo.f * p.Y / p.Z + sy, r = geo.f * BALL / 2 / p.Z;
+    const gy = geo.cy + geo.f * b.ghc / p.Z + sy, near = Math.max(0, 1 - (b.ghc - p.Y) / 2.5);
+    g.save();
+    g.fillStyle = 'rgba(0,0,0,' + (0.15 + 0.25 * near).toFixed(2) + ')';
+    g.beginPath(); g.ellipse(x, gy, Math.max(1, r * 1.3), Math.max(0.5, r * 0.4), 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgb(242,240,232)'; g.beginPath(); g.arc(x, y, Math.max(0.8, r), 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  // simulated pitch: the whole picture is drawn here and streamed to the tracker
   function demoFrame() {
-    const g = demo.ctx, { f, cx, cy } = DM;
+    const g = demo.ctx;
     const sx = Math.round(rnd(-1, 1)), sy = Math.round(rnd(-1, 1)); // a little camera shake
     g.drawImage(demo.bg, sx, sy);
-    const b = demo.ball;
-    if (b) {
-      const p = ballAt(b, (performance.now() - b.t0) / 1000);
-      if (p.Z >= b.Zend) { demo.ball = null; $('demoBowl').disabled = false; }
-      else if (p.Z > 1) {
-        const x = cx + f * p.X / p.Z + sx, y = cy + f * p.Y / p.Z + sy, r = f * BALL / 2 / p.Z;
-        g.fillStyle = 'rgb(242,240,232)'; g.beginPath(); g.arc(x, y, Math.max(0.8, r), 0, Math.PI * 2); g.fill();
-      }
-    }
+    paintBall(g, demo.canvas.width, demo.canvas.height, sx, sy);
   }
   function bowl() {
-    if (!demoOn || demo.ball) return;
-    demo.ball = makeBall(demo.kind);
-    demo.last = { kind: demo.ball.kind, V: demo.ball.V };
+    if (!demo.mode || demo.ball || setup) return;
+    const geo = demoGeometry(demo.canvas.width, demo.canvas.height);
+    if (!geo) { flash('Line up the wicket first', 2000); return; }
+    demo.ball = makeBall(demo.kind, geo.hc);
+    demo.ball.ghc = geo.hc;
+    demo.last = { kind: demo.ball.kind, V: demo.ball.V, b: demo.ball }; // for tests
     $('demoBowl').disabled = true;
   }
-  async function startDemo() {
-    if (demoOn) return;
+  // src 'sim' = drawn pitch; 'cam' = the live camera with a virtual ball added (bowled at the user's own stumps)
+  async function startDemo(src) {
+    src = src === 'cam' || src === 'sim' ? src : demo.src || 'sim';
+    if (demo.mode) exitDemo();
     setError('');
     if (setup) exitSetup(true);
     stopSource();
-    demo.backup = { wk, wideAdj, batAdj, off: { ...off } };
-    demoOn = true;
-    buildDemoScene();
-    if (!demo.canvas) { demo.canvas = document.createElement('canvas'); demo.canvas.width = DM.W; demo.canvas.height = DM.H; demo.ctx = demo.canvas.getContext('2d'); }
-    // the wicket sits exactly on the simulated stumps
-    const Dw = stumpsDist();
-    wk = { x: 0.5, y: (DM.cy + DM.f * DM.hc / Dw) / DM.H, h: DM.f * STUMP_H / Dw / DM.H };
-    wideAdj = { dx: 0, g: 1 }; batAdj = { dx: 0, s: 1 }; off = { x: 0, y: 0 };
-    demoFrame();
-    demo.timer = setInterval(demoFrame, 1000 / 30);
-    demo.stream = demo.canvas.captureStream(30);
-    video.srcObject = demo.stream;
+    if (!demo.canvas) { demo.canvas = document.createElement('canvas'); demo.ctx = demo.canvas.getContext('2d'); }
+    if (src === 'cam') {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setError('No camera here. Try the simulated pitch.'); return; }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      } catch (e) { setError('The camera could not be started for the demo. Allow camera access, or use the simulated pitch.'); return; }
+      demo.mode = 'cam'; demoOn = false; // the user's real wicket is used and may be adjusted and saved
+    } else {
+      demo.backup = { wk, wideAdj, batAdj, off: { ...off } };
+      demo.mode = 'sim'; demoOn = true;
+      buildDemoScene();
+      demo.canvas.width = DM.W; demo.canvas.height = DM.H;
+      // the wicket sits exactly on the simulated stumps
+      const Dw = stumpsDist();
+      wk = { x: 0.5, y: (DM.cy + DM.f * DM.hc / Dw) / DM.H, h: DM.f * STUMP_H / Dw / DM.H };
+      wideAdj = { dx: 0, g: 1 }; batAdj = { dx: 0, s: 1 }; off = { x: 0, y: 0 };
+    }
+    demo.src = src;
+    $('demoSrc').querySelectorAll('button').forEach(x => { x.classList.toggle('on', x.dataset.src === src); x.setAttribute('aria-pressed', x.dataset.src === src); });
+    $('demoSetup').hidden = src !== 'cam';
+    if (src === 'sim') {
+      demoFrame();
+      demo.timer = setInterval(demoFrame, 1000 / 30);
+      demo.stream = demo.canvas.captureStream(30);
+      video.srcObject = demo.stream;
+    } else video.srcObject = stream;
     if (!video.videoWidth) await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
     try { await video.play(); } catch (e) {}
     camEl.classList.add('demo');
     $('tools').hidden = true; $('demoBar').hidden = false; $('demoBowl').disabled = false;
     deliveries = []; selected = null; nextId = 1;
-    setupZoom(); onSourceReady(); sizeLimitsFromWicket(); keepAwake();
+    setupZoom(); onSourceReady(); keepAwake();
     renderLog(); updateBoard();
-    flash('Demo: pick a type of ball and tap Bowl a ball', 3500);
+    if (src === 'cam') {
+      if (wk) { sizeLimitsFromWicket(); flash('Demo on your camera: balls are bowled at the wicket you lined up', 3500); }
+      else setTimeout(() => { if (demo.mode === 'cam' && !wk && !setup) enterSetup('wk'); }, 300);
+    } else { sizeLimitsFromWicket(); flash('Demo: pick a type of ball and tap Bowl a ball', 3500); }
   }
   function exitDemo() {
-    if (!demoOn) return;
+    if (!demo.mode) return;
     clearInterval(demo.timer); clearInterval(demo.auto); demo.auto = null; demo.ball = null; $('demoAuto').checked = false;
-    if (demo.stream) demo.stream.getTracks().forEach(t => t.stop());
-    stopSource();
-    demoOn = false;
-    ({ wk, wideAdj, batAdj } = demo.backup); off = demo.backup.off; ref = null;
+    if (setup) exitSetup(true);
+    if (demo.stream) { demo.stream.getTracks().forEach(t => t.stop()); demo.stream = null; }
+    stopSource(); // also stops the live camera used by a camera demo
+    if (demo.mode === 'sim') { ({ wk, wideAdj, batAdj } = demo.backup); off = demo.backup.off; }
+    ref = null; demo.mode = null; demoOn = false;
     camEl.classList.remove('demo');
     if (camEl.classList.contains('full')) setFull(false);
     $('demoBar').hidden = true; $('tools').hidden = false;
     $('empty').hidden = false; ['zoomCtl', 'handCtl', 'liveChip', 'grip'].forEach(id => { $(id).hidden = true; });
     deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); updateSetupBtn(); hint(null);
   }
-  $('demoBtn2').onclick = startDemo;
+  $('demoBtn2').onclick = () => startDemo('sim');
   $('demoExit').onclick = exitDemo;
   $('demoBowl').onclick = bowl;
+  $('demoSetup').onclick = () => enterSetup('wk');
+  $('demoSrc').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.dataset.src === demo.mode) return;
+    startDemo(b.dataset.src);
+  });
   $('demoKinds').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     demo.kind = b.dataset.kind;
