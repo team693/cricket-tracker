@@ -7,7 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Wicket tracker</title>
+<title>Indoor Cricket Jersey</title>
+<meta name="description" content="Indoor Cricket Jersey: LBW calls, wides, ball speed and a match scorer on your phone. Made by Syed Ahmed.">
+<meta name="author" content="Syed Ahmed">
+<meta name="apple-mobile-web-app-title" content="Indoor Cricket">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -40,8 +43,12 @@ h2,h3,.cond{font-family:"Barlow Condensed","Arial Narrow",sans-serif}
 .appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
   margin:0 -16px 14px;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;
   background:rgba(8,12,10,.78);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:8px;font:700 1.45rem/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.2px}
-.brand .logo{width:28px;height:28px;fill:var(--accent)}
+.brand{cursor:pointer;display:flex;align-items:center;gap:8px;font:700 1.45rem/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.2px}
+.brand .logo{width:28px;height:28px;fill:var(--accent);flex:none}
+.brand-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand-name{white-space:nowrap}
+.brand-sub{font:500 .68rem/1 "Barlow",system-ui,sans-serif;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.hero .hero-sub{color:var(--accent);font-weight:600;font-size:.95rem;letter-spacing:.04em;margin:0 0 10px}
 .tabs{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:4px}
 .tabs button{display:flex;align-items:center;gap:6px;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;border:0;font-weight:600}
 .tabs button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -89,7 +96,7 @@ details.card[open] summary::after{transform:rotate(225deg)}
 
 /* ---------- camera ---------- */
 .cam{position:relative}
-.stage{position:relative;width:100%;max-width:calc(72vh * var(--ar,1.7778));aspect-ratio:var(--ar,1.7778);margin:0 auto;background:#000;
+.stage{position:relative;width:calc(100% * var(--ss,1));max-width:calc(72vh * var(--ar,1.7778));aspect-ratio:var(--ar,1.7778);margin:0 auto;background:#000;
   border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line)}
 .stage:has(.empty:not([hidden])){aspect-ratio:auto;min-height:340px}
 .view{position:absolute;inset:0;transform-origin:0 0}
@@ -122,6 +129,41 @@ details.card[open] summary::after{transform:rotate(225deg)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.55)}70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
 .lockchip{display:none;background:rgba(200,240,74,.9);color:var(--accent-ink);border-color:transparent}
 .cam.locked .lockchip{display:inline-flex}
+.demochip{display:none;background:rgba(53,167,255,.92);color:#fff;border-color:transparent;letter-spacing:.06em;text-transform:uppercase}
+.cam.demo .demochip{display:inline-flex}
+/* picture size grip (expand / contract the camera view) */
+.grip{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px auto 0;padding:6px 14px;width:max-content;border-radius:999px;cursor:ns-resize;
+  color:var(--dim);font-size:.78rem;touch-action:none;user-select:none;-webkit-user-select:none}
+.grip:hover,.grip:focus-visible,.grip.dragging{background:var(--surface2);color:var(--muted)}
+.grip-bar{width:44px;height:5px;border-radius:3px;background:var(--line2)}
+.grip.dragging .grip-bar{background:var(--accent)}
+.cam.full .grip{display:none}
+/* home */
+.home{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-top:6px}
+.hero{text-align:center;padding:26px 12px 8px;background:radial-gradient(400px 200px at 50% 0%,rgba(200,240,74,.12),transparent 70%)}
+.hero-logo{width:64px;height:64px;fill:var(--accent)}
+.hero h1{font:700 2.8rem/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:8px 0 6px}
+.hero p{margin:0 auto;max-width:42ch;color:var(--muted)}
+.home-cards{display:flex;flex-direction:column;gap:12px}
+.home-card{display:flex;align-items:center;gap:14px;text-align:left;width:100%;padding:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--r)}
+.home-card:hover{border-color:var(--line2);background:var(--surface2)}
+.hc-ico{flex:none;width:52px;height:52px;border-radius:16px;background:var(--accent-soft);display:grid;place-items:center}
+.hc-ico svg{width:28px;height:28px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hc-txt{flex:1;display:flex;flex-direction:column;gap:3px}
+.hc-txt b{font:700 1.35rem/1.1 "Barlow Condensed","Arial Narrow",sans-serif}
+.hc-txt span{color:var(--muted);font-weight:400;font-size:.92rem;line-height:1.35}
+.hc-go{font-size:2rem;color:var(--dim);line-height:1}
+.home-steps{margin:4px 0 0;padding:0 0 0 1.2em;color:var(--muted);font-size:.92rem}
+.home-steps li{margin:6px 0}
+.home-steps b{color:var(--ink)}
+/* demo controls */
+.demobar{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 14px}
+.kinds{display:flex;flex-wrap:wrap;gap:6px}
+.kinds button{padding:9px 13px;border-radius:999px;background:var(--surface2);color:var(--muted);border:1px solid var(--line2);font-size:.9rem}
+.kinds button.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.demobar .actions{margin-top:10px}
+#demoBowl{display:flex;align-items:center;justify-content:center;gap:8px}
+#demoBowl svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
 .rail{flex-direction:column;align-items:center}
 .glass{width:44px;height:44px;padding:0;border-radius:50%;background:var(--glass);border:1px solid var(--glass-line);color:#fff;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);display:grid;place-items:center;font:600 1.45rem/1 "Barlow",system-ui,sans-serif}
@@ -180,7 +222,8 @@ background:transparent;color:var(--muted);border-radius:10px}
 /* full screen camera (maximise / minimise) */
 .cam.full{position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
-.cam.full .stage{max-width:min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(100dvh * var(--ar,1.7778)))!important;border-radius:0;border:0;box-shadow:none}
+.cam.full .stage{width:100%;max-width:
+min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(100dvh * var(--ar,1.7778)))!important;border-radius:0;border:0;box-shadow:none}
 .cam.full .sheet{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100%);margin:0;border-radius:22px 22px 0 0;
   background:rgba(18,25,21,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));animation:none}
 @media (orientation:landscape) and (max-height:560px){
@@ -226,7 +269,9 @@ background:transparent;color:var(--muted);border-radius:10px}
   .board-verdict{font-size:2.6rem}
   .empty h2{font-size:1.6rem}
 }
-@media (max-width:420px){ .tabs button{padding:8px 11px} .brand span{display:none} .dpad{grid-template-columns:repeat(3,54px)} .sizer button{width:96px} }
+@media (max-width:520px){ .tab-txt{display:none} }
+@media (max-width:600px){ .brand-txt{display:none} }
+@media (max-width:420px){ .tabs button{padding:8px 11px} .brand-txt{display:none} .dpad{grid-template-columns:repeat(3,54px)} .sizer button{width:96px} }
 @media (orientation:landscape) and (max-height:520px){
   .appbar{position:static}
   .stage{max-width:min(100%, calc((100vh - 24px) * var(--ar,1.7778)));max-width:min(100%, calc((100svh - 24px) * var(--ar,1.7778)))}
@@ -281,13 +326,45 @@ background:transparent;color:var(--muted);border-radius:10px}
   <header class="appbar">
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="9" width="3" height="17" rx="1.5"/><rect x="14.5" y="9" width="3" height="17" rx="1.5"/><rect x="22" y="9" width="3" height="17" rx="1.5"/><rect x="6" y="5.5" width="9.5" height="2.2" rx="1.1"/><rect x="16.5" y="5.5" width="9.5" height="2.2" rx="1.1"/></svg>
-      <span>Wicket</span>
+      <span class="brand-txt"><span class="brand-name">Indoor Cricket Jersey</span><span class="brand-sub">Made by Syed Ahmed</span></span>
     </div>
     <nav class="tabs" aria-label="Mode">
+      <button id="tabHome" aria-pressed="false" aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span class="tab-txt">Home</span></button>
       <button id="tabTracker" class="on" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tracker</button>
       <button id="tabScorer" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Scorer</button>
     </nav>
   </header>
+
+  <main class="home" id="homeView" hidden>
+    <section class="hero">
+      <svg class="hero-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="9" width="3" height="17" rx="1.5"/><rect x="14.5" y="9" width="3" height="17" rx="1.5"/><rect x="22" y="9" width="3" height="17" rx="1.5"/><rect x="6" y="5.5" width="9.5" height="2.2" rx="1.1"/><rect x="16.5" y="5.5" width="9.5" height="2.2" rx="1.1"/></svg>
+      <h1>Indoor Cricket Jersey</h1>
+      <p class="hero-sub">Made by Syed Ahmed</p>
+      <p>LBW calls, wides and ball speed from a phone at the bowler's end. Plus a simple match scorer.</p>
+    </section>
+    <div class="home-cards">
+      <button class="home-card" id="homeTrack">
+        <span class="hc-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+        <span class="hc-txt"><b>Ball tracker</b><span>Live camera: hitting / missing, wides and speed</span></span>
+        <span class="hc-go" aria-hidden="true">›</span>
+      </button>
+      <button class="home-card" id="homeDemo">
+        <span class="hc-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/></svg></span>
+        <span class="hc-txt"><b>Watch a demo</b><span>A sample ball thrower bowls deliveries; no camera needed</span></span>
+        <span class="hc-go" aria-hidden="true">›</span>
+      </button>
+      <button class="home-card" id="homeScore">
+        <span class="hc-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>
+        <span class="hc-txt"><b>Scorer</b><span>Score a match ball by ball, on any phone</span></span>
+        <span class="hc-go" aria-hidden="true">›</span>
+      </button>
+    </div>
+    <ol class="home-steps">
+      <li><b>Set the phone up</b> on a stand behind the bowler's stumps, looking at the batter's stumps.</li>
+      <li><b>Line up the wicket</b> with the arrows and − / +. The wide lines and pitch markings follow.</li>
+      <li><b>Pick RH or LH</b> for the batter, lock the screen, and bowl.</li>
+    </ol>
+  </main>
 
   <main class="grid" id="trackerView">
     <section class="cam-col">
@@ -306,11 +383,14 @@ background:transparent;color:var(--muted);border-radius:10px}
               <li>Point it down the pitch at the batter's stumps</li>
               <li>Start the camera and line up the wicket</li>
             </ol>
-            <button class="primary big" id="camBtn2">Start camera</button>
+            <div class="row" style="justify-content:center">
+              <button class="primary big" id="camBtn2">Start camera</button>
+              <button class="ghost big" id="demoBtn2">Watch a demo</button>
+            </div>
           </div>
 
           <div class="ov ov-tl" id="liveChip" hidden>
-            <div class="ov-row"><span class="chip"><i class="dot"></i><span id="fps">0</span> fps</span><span class="chip lockchip" aria-hidden="true">Locked</span></div>
+            <div class="ov-row"><span class="chip"><i class="dot"></i><span id="fps">0</span> fps</span><span class="chip lockchip" aria-hidden="true">Locked</span><span class="chip demochip">Demo</span></div>
           </div>
           <div class="ov ov-bl" id="handCtl" hidden>
             <div class="hand" role="group" aria-label="Batter">
@@ -339,6 +419,9 @@ background:transparent;color:var(--muted);border-radius:10px}
           <div class="toast" id="pop" hidden></div>
         </div>
 
+        <div class="grip" id="grip" role="slider" tabindex="0" aria-label="Picture size" aria-valuemin="50" aria-valuemax="100" aria-valuenow="100" hidden>
+          <span class="grip-bar"></span><span class="grip-txt">Drag to resize the picture</span>
+        </div>
         <div class="sheet" id="setupPanel" hidden>
           <div class="grabber" aria-hidden="true"></div>
           <div class="seg" role="group" aria-label="What to adjust">
@@ -376,6 +459,22 @@ background:transparent;color:var(--muted);border-radius:10px}
         <button class="primary" id="setupBtn">Set up wicket</button>
         <button class="ghost" id="resetBtn">Clear</button>
       </div>
+      <div class="demobar" id="demoBar" hidden>
+        <div class="kinds" id="demoKinds" role="group" aria-label="Type of ball">
+          <button data-kind="random" class="on">Random</button>
+          <button data-kind="hit">Hitting</button>
+          <button data-kind="off">Outside off</button>
+          <button data-kind="wide">Wide</button>
+          <button data-kind="leg">Down leg</button>
+          <button data-kind="high">Bouncer</button>
+        </div>
+        <div class="actions">
+          <button class="primary" id="demoBowl"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5c3 2 3 9 0 11M17.5 6.5c-3 2-3 9 0 11"/></svg>Bowl a ball</button>
+          <button class="ghost" id="demoExit">Exit demo</button>
+        </div>
+        <label class="switch"><input type="checkbox" id="demoAuto"><span></span>Bowl automatically every few seconds</label>
+      </div>
+
       <p class="err" id="err"></p>
     </section>
 
@@ -516,16 +615,20 @@ background:transparent;color:var(--muted);border-radius:10px}
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
   let mode = null, dragStart = null, dragNow = null;
   let wkFlashUntil = 0, previewUntil = 0, ballMark = null, setup = null;
-  let zone = null, wk = null, wideAdj = { dx: 0, g: 1 }, viewZoom = 1;
+  let zone = null, wk = null, wideAdj = { dx: 0, g: 1 }, batAdj = { dx: 0, s: 1 }, viewZoom = 1, demoOn = false;
   let ref = null, avg = null, refMean = 0, off = { x: 0, y: 0 }, recent = [], frameNo = 0;
-  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph', widesOn: true, legWides: true, hand: 'R' };
+  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph', widesOn: true, legWides: true, hand: 'R', stageScale: 1 };
 
   // ---------- persistence ----------
   // v3: camera at the bowler's end, looking at the batter's wicket
-  function save() { try { localStorage.setItem('wkt-v3', JSON.stringify({ S, zone, wk: wkNow(), wideAdj })); } catch (e) {} }
+  function save() {
+    if (demoOn) return; // the demo's own wicket and settings are never saved
+    try { localStorage.setItem('wkt-v3', JSON.stringify({ S, zone, wk: wkNow(), wideAdj, batAdj })); } catch (e) {}
+  }
   try {
     const o = JSON.parse(localStorage.getItem('wkt-v3') || 'null');
-    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; if (o.wideAdj) wideAdj = o.wideAdj; }
+    if (o) { if (o.S) Object.assign(S, o.S); zone = o.zone || null; wk = o.wk || null; if (o.wideAdj) wideAdj = o.wideAdj; if (o.batAdj) batAdj = o.batAdj; }
+
   } catch (e) {}
   S.showMask = false;
 
@@ -540,15 +643,15 @@ background:transparent;color:var(--muted);border-radius:10px}
   // wicket, assuming the phone is roughly level:
   //  - off side: the white wide guideline, 0.89 m from the middle stump;
   //  - leg side: called automatically when the ball passes clearly outside leg stump (LEG_X from the middle stump).
-  // Which side is off depends on the batter: from the bowler's end, a right-hander's off side is on the right of
-  // the picture. wideAdj holds the user's fine-tuning: a sideways shift (picture fraction) and the off-side distance.
+  // Which side is off depends on the batter: from the bowler's end a right-hander stands facing the bowler's left,
+  // so their off side is on the LEFT of the picture (a left-hander's on the right). wideAdj holds the user's fine-tuning: a sideways shift (picture fraction) and the off-side distance.
   const WIDE_X = 0.89, LEG_X = 0.2;
   function widesNow(hand) {
     const k = wkNow();
     if (!k || !PW || (!S.widesOn && !S.legWides)) return null;
     const f = stumpsDist() * k.h * PH / STUMP_H, Dw = stumpsDist(), Zc = Dw - CREASE, cx = PW / 2, cy = PH / 2;
     const X0 = (k.x * PW - cx) * Dw / f, hc = (k.y * PH - cy) * Dw / f;
-    const side = (hand || S.hand) === 'L' ? -1 : 1, mid = cx + f * X0 / Zc;
+    const side = (hand || S.hand) === 'L' ? 1 : -1, mid = cx + f * X0 / Zc;
     const at = d => (mid + side * f * d / Zc) / PW + wideAdj.dx;
     return { mid: mid / PW + wideAdj.dx, side, y: (cy + f * hc / Zc) / PH,
       off: S.widesOn ? at(WIDE_X * wideAdj.g) : null, leg: S.legWides ? at(-LEG_X) : null, offSpan: f * WIDE_X / Zc / PW };
@@ -641,6 +744,7 @@ background:transparent;color:var(--muted);border-radius:10px}
   // ---------- sources ----------
   async function startCamera() {
     setError('');
+    if (demoOn) exitDemo();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError('This browser has no camera access here. Open the page over https in Chrome or Safari.');
       return;
@@ -686,7 +790,7 @@ background:transparent;color:var(--muted);border-radius:10px}
     let caps = null;
     try { caps = tr && tr.getCapabilities ? tr.getCapabilities() : null; } catch (e) {}
     if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) zoomCaps = caps.zoom;
-    $('zoomCtl').hidden = false; $('handCtl').hidden = false; $('liveChip').hidden = false;
+    $('zoomCtl').hidden = false; $('handCtl').hidden = false; $('liveChip').hidden = false; $('grip').hidden = false;
     if (zoomCaps) {
       // the saved wicket was drawn at the saved zoom, so go back to it without rescaling
       let cur = null;
@@ -1418,7 +1522,7 @@ background:transparent;color:var(--muted);border-radius:10px}
   }
 
   // ---------- setup guides: real-world shapes drawn in perspective from the wicket ----------
-  // Ground point (X metres sideways from the middle stump, towards the off side of a right-hander = picture right;
+  // Ground point (X metres sideways from the middle stump, positive = to the right in the picture;
   // Z metres from the camera; Yup metres above the ground) -> canvas coordinates.
   function groundProjector(W, H) {
     const k = wkNow(); if (!k) return null;
@@ -1449,7 +1553,7 @@ background:transparent;color:var(--muted);border-radius:10px}
   function drawGuides(W, H) {
     const g = groundProjector(W, H); if (!g) return;
     const { Dw, P } = g, px = W / Math.max(1, disp.clientWidth) / view.z;
-    const side = S.hand === 'L' ? -1 : 1, Zp = Dw - CREASE;
+    const side = S.hand === 'L' ? 1 : -1, Zp = Dw - CREASE;
     const line = (pts, col, wdt, dash) => {
       dctx.strokeStyle = col; dctx.lineWidth = wdt * px; dctx.setLineDash(dash ? dash.map(v => v * px) : []);
       dctx.beginPath(); pts.forEach((p, i) => i ? dctx.lineTo(p[0], p[1]) : dctx.moveTo(p[0], p[1])); dctx.stroke();
@@ -1481,10 +1585,11 @@ background:transparent;color:var(--muted);border-radius:10px}
   }
   // a simple batter outline standing in the crease, on the leg side of the stumps, bat towards the off side
   function drawBatter(P, Dw, side, px) {
-    const Z = Dw - 0.7, bx = -side * 0.32;
-    const at = (x, y) => P(bx + x * side, Z, y); // x towards the off side, y up (metres)
-    const seg = (a, b, w) => { const p = at(a[0], a[1]), q = at(b[0], b[1]), s = P(0, Z, 0)[1] - P(0, Z, 1)[1];
+    const Z = Dw - 0.7, bx = -side * 0.32 + batAdj.dx, k = batAdj.s; // batAdj: user's sideways nudge (m) and size
+    const at = (x, y) => P(bx + x * side * k, Z, y * k); // x towards the off side, y up (metres)
+    const seg = (a, b, w) => { const p = at(a[0], a[1]), q = at(b[0], b[1]), s = (P(0, Z, 0)[1] - P(0, Z, 1)[1]) * k;
       dctx.lineWidth = w * s; dctx.beginPath(); dctx.moveTo(p[0], p[1]); dctx.lineTo(q[0], q[1]); dctx.stroke(); };
+
     dctx.save();
     dctx.lineCap = 'round'; dctx.lineJoin = 'round'; dctx.setLineDash([]);
     dctx.strokeStyle = 'rgba(155,227,255,0.55)';
@@ -1495,7 +1600,7 @@ background:transparent;color:var(--muted);border-radius:10px}
     dctx.strokeStyle = 'rgba(255,220,160,0.8)';
     seg([0.24, 0.98], [0.3, 0.12], 0.1);                                             // bat
     dctx.fillStyle = 'rgba(155,227,255,0.6)';
-    const hd = at(0.03, 1.6), r = (P(0, Z, 0)[1] - P(0, Z, 1)[1]) * 0.12;
+    const hd = at(0.03, 1.6), r = (P(0, Z, 0)[1] - P(0, Z, 1)[1]) * 0.12 * k;
     dctx.beginPath(); dctx.arc(hd[0], hd[1], r, 0, Math.PI * 2); dctx.fill();
     const t = at(0, 1.9);
     dimText((S.hand === 'L' ? 'Left' : 'Right') + '-handed batter', t[0], t[1], px, '#9BE3FF');
@@ -1612,21 +1717,21 @@ background:transparent;color:var(--muted);border-radius:10px}
     $('tgtWk').classList.toggle('on', t === 'wk'); $('tgtWk').setAttribute('aria-pressed', t === 'wk');
     $('tgtWide').classList.toggle('on', t === 'wides'); $('tgtWide').setAttribute('aria-pressed', t === 'wides');
     $('tgtBat').classList.toggle('on', t === 'bat'); $('tgtBat').setAttribute('aria-pressed', t === 'bat');
-    $('setupCtl').hidden = t === 'bat'; $('batRow').hidden = t !== 'bat';
-    $('sizeLbl').textContent = t === 'wk' ? 'Size' : 'Off-side';
+    $('batRow').hidden = t !== 'bat';
+    $('sizeLbl').textContent = t === 'wk' ? 'Wicket size' : t === 'bat' ? 'Batter size' : 'Off-side';
     $('widesRow').hidden = t !== 'wides';
     $('widesOn').checked = S.widesOn; $('legOn').checked = S.legWides;
     const none = t === 'wides' && !S.widesOn && !S.legWides;
     document.querySelectorAll('#setupPanel [data-mv], #setupPanel [data-sz]').forEach(b => {
-      b.disabled = none || (t === 'wides' && (b.dataset.mv === 'up' || b.dataset.mv === 'down' || (b.dataset.sz && !S.widesOn)));
+      b.disabled = none || ((t === 'wides' || t === 'bat') && (b.dataset.mv === 'up' || b.dataset.mv === 'down')) || (t === 'wides' && b.dataset.sz && !S.widesOn);
     });
-    const side = S.hand === 'L' ? 'left' : 'right';
+    const side = S.hand === 'L' ? 'right' : 'left';
     $('setupHelp').textContent = t === 'bat'
-      ? 'Pick the batter\'s hand. From the bowler\'s end a right-hander\'s off side is on the right of the picture, a left-hander\'s on the left. It decides which side is off and which is leg for wides. Switch any time with RH / LH on the picture.'
+      ? 'Pick the batter\'s hand. From the bowler\'s end a right-hander stands side-on facing the bowler\'s left, so their off side is on the left of the picture; a left-hander\'s is on the right. It decides which side is off and which is leg for wides. ◀ ▶ move the outline and − / + change its size (it is a guide only). Switch hand any time with RH / LH on the picture.'
       : t === 'wk'
       ? 'Line the frame up with the far stumps: base on the ground, top at the bails. Use the arrows and − / +, or drag anywhere on the picture and pinch.'
       : none ? 'Wides are not being called.'
-      : 'Placed for you from the wicket. Orange: the off-side wide guideline (' + (S.hand === 'L' ? 'left-hander, off side on the left' : 'right-hander, off side on the right') +
+      : 'Placed for you from the wicket. Orange: the off-side wide guideline (' + (S.hand === 'L' ? 'left-hander, off side on the right' : 'right-hander, off side on the left') +
         '). Blue dotted: leg side, a ball passing outside it is wide. ◀ ▶ nudge both; − / + move the off-side line in or out.';
     hint(t === 'wk' ? 'Line up the frame with the stumps' : t === 'bat' ? (S.hand === 'L' ? 'Left-handed batter' : 'Right-handed batter') : 'Wide lines (' + (S.hand === 'L' ? 'LH' : 'RH') + ' batter, off side ' + side + ')');
     fitView();
@@ -1664,11 +1769,16 @@ background:transparent;color:var(--muted);border-radius:10px}
   function moveTarget(dx, dy) {
     if (setup === 'wk' && wk) wk = { x: wk.x + dx, y: wk.y + dy, h: wk.h };
     else if (setup === 'wides' && (S.widesOn || S.legWides)) wideAdj = { dx: wideAdj.dx + dx, g: wideAdj.g };
+    else if (setup === 'bat' && wk) { // the batter outline moves sideways in metres at the crease
+      const f = stumpsDist() * wk.h * PH / STUMP_H, m = dx * PW * (stumpsDist() - 0.7) / f;
+      batAdj = { dx: Math.max(-2, Math.min(2, batAdj.dx + m)), s: batAdj.s };
+    }
     keepInView();
   }
   function scaleTarget(k) {
     if (setup === 'wk' && wk) wk = { x: wk.x, y: wk.y, h: Math.min(0.9, Math.max(0.01, wk.h * k)) };
     else if (setup === 'wides' && S.widesOn) wideAdj = { dx: wideAdj.dx, g: Math.min(3, Math.max(0.3, wideAdj.g * k)) };
+    else if (setup === 'bat') batAdj = { dx: batAdj.dx, s: Math.min(1.6, Math.max(0.6, batAdj.s * k)) };
   }
   // magnify the picture so the wicket (and wide lines) fill a good part of it
   function fitView() {
@@ -1792,6 +1902,161 @@ background:transparent;color:var(--muted);border-radius:10px}
     lastStageW = W; lastStageH = H;
   }
 
+  // ---------- picture size (expand / contract the camera view) ----------
+  const grip = $('grip');
+  function applyStageScale() { camEl.style.setProperty('--ss', S.stageScale); grip.setAttribute('aria-valuenow', Math.round(S.stageScale * 100)); }
+  applyStageScale();
+  let gripDrag = null;
+  grip.addEventListener('pointerdown', e => {
+    grip.setPointerCapture(e.pointerId);
+    gripDrag = { y: e.clientY, s: S.stageScale, w: stageEl.clientWidth / S.stageScale };
+    grip.classList.add('dragging');
+  });
+  grip.addEventListener('pointermove', e => {
+    if (!gripDrag) return;
+    const ar = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
+    S.stageScale = Math.max(0.45, Math.min(1, gripDrag.s + (e.clientY - gripDrag.y) * ar / gripDrag.w)); // drag down = bigger
+    applyStageScale();
+  });
+  const gripEnd = () => { if (!gripDrag) return; gripDrag = null; grip.classList.remove('dragging'); save(); };
+  grip.addEventListener('pointerup', gripEnd); grip.addEventListener('pointercancel', gripEnd);
+  grip.addEventListener('dblclick', () => { S.stageScale = 1; applyStageScale(); save(); });
+  grip.addEventListener('keydown', e => {
+    const d = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 0.05 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -0.05 : 0;
+    if (!d) return;
+    e.preventDefault(); S.stageScale = Math.max(0.45, Math.min(1, S.stageScale + d)); applyStageScale(); save();
+  });
+
+  // ---------- demo: a simulated bowler's-end camera and a sample ball thrower ----------
+  // The scene (pitch, creases, stumps at the set distance) is drawn into a canvas and fed to the tracker as if it
+  // were the camera, so the real detection, tracking and judging run on it. Balls get a release height, speed,
+  // gravity, a bounce and a slower speed off the pitch. Nothing done in the demo is saved.
+  const DM = { W: 960, H: 540, f: 1507, hc: 1.4, cx: 480, cy: 270 };
+  const demo = { canvas: null, ctx: null, bg: null, bgFor: 0, stream: null, timer: null, auto: null, ball: null, kind: 'random', backup: null };
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function buildDemoScene() {
+    const Dw = stumpsDist();
+    if (demo.bg && demo.bgFor === Dw) return;
+    const { W, H, f, hc, cx, cy } = DM;
+    const c = demo.bg || document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
+    let seed = 7; const rr = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    const noise = new Float32Array((W >> 2) * (H >> 2) + W); for (let i = 0; i < noise.length; i++) noise[i] = rr() - 0.5;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, n = noise[(y >> 2) * (W >> 2) + (x >> 2)] * 40;
+      let r, gg, b;
+      if (y <= cy + 2) { const t = y / cy; r = 28 + n * 0.3 + t * 8; gg = 52 + n * 0.5 + t * 14; b = 34 + n * 0.3; }
+      else {
+        const Z = f * hc / (y - cy), X = (x - cx) * Z / f;
+        if (Math.abs(X) < 1.525 && Z < Dw + 1.6) { r = 168 + n * 0.5; gg = 147 + n * 0.5; b = 106 + n * 0.4; }
+        else { const stripe = Math.floor(Z / 2.5) % 2 ? 6 : -6; r = 58 + n * 0.5 + stripe * 0.4; gg = 120 + n + stripe; b = 56 + n * 0.3; }
+        const Zp = Dw - 1.22;
+        const line = (Math.abs(Z - Dw) < 0.04 && Math.abs(X) < 1.32) || (Math.abs(Z - Zp) < 0.045 && Math.abs(X) < 1.83) ||
+          (Math.abs(Math.abs(X) - 1.32) < 0.03 && Z > Zp - 0.3 && Z < Dw + 1.22) || (Math.abs(Math.abs(X) - 0.89) < 0.025 && Z > Zp - 0.5 && Z < Zp);
+        if (line) { r = 232; gg = 232; b = 226; }
+      }
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    // stumps and bails
+    g.fillStyle = 'rgb(190,150,98)';
+    const sh = f * STUMP_H / Dw, sw = f * 0.035 / Dw, base = cy + f * hc / Dw;
+    for (const X of [-0.0968, 0, 0.0968]) g.fillRect(cx + f * X / Dw - sw / 2, base - sh, sw, sh);
+    g.fillRect(cx - f * 0.11 / Dw, base - sh - 2, f * 0.22 / Dw, 2);
+    demo.bg = c; demo.bgFor = Dw;
+  }
+  function makeBall(kind) {
+    const kinds = ['hit', 'hit', 'off', 'wide', 'leg', 'high'];
+    if (kind === 'random') kind = kinds[Math.floor(Math.random() * kinds.length)];
+    const offS = S.hand === 'L' ? 1 : -1, Dw = stumpsDist(), hc = DM.hc;
+    const V = rnd(20, 36), Z0 = S.behind + 1.5, Y0 = hc - 2.1, Yg = hc - 0.036;
+    let Xs = rnd(-0.06, 0.06), Zb = rnd(14.5, 17), e = 0.5;
+    if (kind === 'off') Xs = offS * rnd(0.28, 0.55);
+    if (kind === 'wide') Xs = offS * rnd(1.08, 1.35);
+    if (kind === 'leg') Xs = -offS * rnd(0.34, 0.55);
+    if (kind === 'high') { Zb = rnd(10.5, 12); e = 0.68; }
+    const X0 = (Math.random() < 0.5 ? -1 : 1) * rnd(0.15, 0.4), tb = (Zb - Z0) / V;
+    const Vy = (Yg - Y0 - 4.905 * tb * tb) / tb, vyb = -(Vy + 9.81 * tb) * e;
+    return { kind, V, Z0, Y0, Yg, Zb, tb, Vy, vyb, V2: V * 0.9, X0, Xs, Dw, Zend: Math.random() < 0.5 ? Dw - 1.1 : Dw + 2.5, t0: performance.now() };
+  }
+  function ballAt(b, t) {
+    let Z, Y;
+    if (t <= b.tb) { Z = b.Z0 + b.V * t; Y = b.Y0 + b.Vy * t + 4.905 * t * t; }
+    else { const u = t - b.tb; Z = b.Zb + b.V2 * u; Y = Math.min(b.Yg, b.Yg + b.vyb * u + 4.905 * u * u); }
+    return { X: b.X0 + (b.Xs - b.X0) * Math.min(1.2, (Z - b.Z0) / (b.Dw - b.Z0)), Y, Z };
+  }
+  function demoFrame() {
+    const g = demo.ctx, { f, cx, cy } = DM;
+    const sx = Math.round(rnd(-1, 1)), sy = Math.round(rnd(-1, 1)); // a little camera shake
+    g.drawImage(demo.bg, sx, sy);
+    const b = demo.ball;
+    if (b) {
+      const p = ballAt(b, (performance.now() - b.t0) / 1000);
+      if (p.Z >= b.Zend) { demo.ball = null; $('demoBowl').disabled = false; }
+      else if (p.Z > 1) {
+        const x = cx + f * p.X / p.Z + sx, y = cy + f * p.Y / p.Z + sy, r = f * BALL / 2 / p.Z;
+        g.fillStyle = 'rgb(242,240,232)'; g.beginPath(); g.arc(x, y, Math.max(0.8, r), 0, Math.PI * 2); g.fill();
+      }
+    }
+  }
+  function bowl() {
+    if (!demoOn || demo.ball) return;
+    demo.ball = makeBall(demo.kind);
+    demo.last = { kind: demo.ball.kind, V: demo.ball.V };
+    $('demoBowl').disabled = true;
+  }
+  async function startDemo() {
+    if (demoOn) return;
+    setError('');
+    if (setup) exitSetup(true);
+    stopSource();
+    demo.backup = { wk, wideAdj, batAdj, off: { ...off } };
+    demoOn = true;
+    buildDemoScene();
+    if (!demo.canvas) { demo.canvas = document.createElement('canvas'); demo.canvas.width = DM.W; demo.canvas.height = DM.H; demo.ctx = demo.canvas.getContext('2d'); }
+    // the wicket sits exactly on the simulated stumps
+    const Dw = stumpsDist();
+    wk = { x: 0.5, y: (DM.cy + DM.f * DM.hc / Dw) / DM.H, h: DM.f * STUMP_H / Dw / DM.H };
+    wideAdj = { dx: 0, g: 1 }; batAdj = { dx: 0, s: 1 }; off = { x: 0, y: 0 };
+    demoFrame();
+    demo.timer = setInterval(demoFrame, 1000 / 30);
+    demo.stream = demo.canvas.captureStream(30);
+    video.srcObject = demo.stream;
+    if (!video.videoWidth) await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true }));
+    try { await video.play(); } catch (e) {}
+    camEl.classList.add('demo');
+    $('tools').hidden = true; $('demoBar').hidden = false; $('demoBowl').disabled = false;
+    deliveries = []; selected = null; nextId = 1;
+    setupZoom(); onSourceReady(); sizeLimitsFromWicket(); keepAwake();
+    renderLog(); updateBoard();
+    flash('Demo: pick a type of ball and tap Bowl a ball', 3500);
+  }
+  function exitDemo() {
+    if (!demoOn) return;
+    clearInterval(demo.timer); clearInterval(demo.auto); demo.auto = null; demo.ball = null; $('demoAuto').checked = false;
+    if (demo.stream) demo.stream.getTracks().forEach(t => t.stop());
+    stopSource();
+    demoOn = false;
+    ({ wk, wideAdj, batAdj } = demo.backup); off = demo.backup.off; ref = null;
+    camEl.classList.remove('demo');
+    if (camEl.classList.contains('full')) setFull(false);
+    $('demoBar').hidden = true; $('tools').hidden = false;
+    $('empty').hidden = false; ['zoomCtl', 'handCtl', 'liveChip', 'grip'].forEach(id => { $(id).hidden = true; });
+    deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); updateSetupBtn(); hint(null);
+  }
+  $('demoBtn2').onclick = startDemo;
+  $('demoExit').onclick = exitDemo;
+  $('demoBowl').onclick = bowl;
+  $('demoKinds').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    demo.kind = b.dataset.kind;
+    $('demoKinds').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  });
+  $('demoAuto').addEventListener('change', e => {
+    clearInterval(demo.auto); demo.auto = null;
+    if (e.target.checked) { bowl(); demo.auto = setInterval(bowl, 4000); }
+  });
+
   // ---------- touches on the picture ----------
   // In setup: one finger drags what's being adjusted (it follows the finger exactly; it doesn't need to be grabbed),
   // two fingers pinch its size. Outside setup: pinch zooms, and drag pans when zoomed in. Nothing else.
@@ -1874,6 +2139,7 @@ background:transparent;color:var(--muted);border-radius:10px}
   }
 
   updateSetupBtn();
+  window.__demo = () => demo.last;
   window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
  // for testing
   updateBoard();
@@ -1899,15 +2165,23 @@ background:transparent;color:var(--muted);border-radius:10px}
 
   // ---- tabs ----
   function showTab(t) {
+    $('homeView').hidden = t !== 'home';
     $('trackerView').hidden = t !== 'tracker';
     $('scorerView').hidden = t !== 'scorer';
-    $('tabTracker').classList.toggle('on', t === 'tracker'); $('tabTracker').setAttribute('aria-pressed', t === 'tracker');
-    $('tabScorer').classList.toggle('on', t === 'scorer'); $('tabScorer').setAttribute('aria-pressed', t === 'scorer');
+    [['tabHome', 'home'], ['tabTracker', 'tracker'], ['tabScorer', 'scorer']].forEach(([id, k]) => {
+      $(id).classList.toggle('on', t === k); $(id).setAttribute('aria-pressed', t === k);
+    });
     try { localStorage.setItem('wkt-tab', t); } catch (e) {}
     if (t === 'scorer') render();
+    window.scrollTo({ top: 0 });
   }
+  $('tabHome').onclick = () => showTab('home');
   $('tabTracker').onclick = () => showTab('tracker');
   $('tabScorer').onclick = () => showTab('scorer');
+  $('homeTrack').onclick = () => showTab('tracker');
+  $('homeScore').onclick = () => showTab('scorer');
+  $('homeDemo').onclick = () => { showTab('tracker'); $('demoBtn2').click(); };
+  document.querySelector('.brand').addEventListener('click', () => showTab('home'));
 
   // ---- replaying a match ----
   const mkBat = name => ({ name, r: 0, b: 0, f4: 0, f6: 0, out: null });
@@ -2241,9 +2515,10 @@ background:transparent;color:var(--muted);border-radius:10px}
     }
   }
 
-  let tab = 'tracker';
-  try { tab = localStorage.getItem('wkt-tab') || 'tracker'; } catch (e) {}
-  showTab(tab === 'scorer' ? 'scorer' : 'tracker');
+  let tab = 'home';
+  try { tab = localStorage.getItem('wkt-tab') || 'home'; } catch (e) {}
+  showTab(['home', 'tracker', 'scorer'].includes(tab) ? tab : 'home');
+
   window.__score = () => ({ db, st: db.cur ? replay(db.cur) : null }); // for testing
 })();
 </script>
