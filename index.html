@@ -192,6 +192,47 @@ details.card[open] summary::after{transform:rotate(225deg)}
 .toast{position:absolute;z-index:4;left:10px;top:50px;padding:9px 14px;border-radius:14px;font:700 1.45rem/1 "Barlow Condensed","Arial Narrow",sans-serif;color:#0B1206;
   pointer-events:none;box-shadow:0 10px 24px rgba(0,0,0,.35);animation:popin .35s var(--ease)}
 .toast small{display:block;font:600 .95rem/1.2 "Barlow",system-ui,sans-serif;margin-top:4px;opacity:.85}
+.toast.held{pointer-events:auto;cursor:zoom-in;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px}
+.toast[hidden]{display:none!important}
+.pop-fig{position:relative;line-height:0}
+.pop-img{width:96px;height:72px;border-radius:9px;object-fit:cover;display:block;box-shadow:0 0 0 2px rgba(11,18,6,.35)}
+.pop-fig span{position:absolute;left:0;right:0;bottom:0;padding:3px 0;border-radius:0 0 9px 9px;background:rgba(11,18,6,.7);color:#fff;font:600 .68rem/1 "Barlow",system-ui,sans-serif;text-align:center}
+/* Ready / Watching / Next ball */
+.arm{position:absolute;z-index:4;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;height:48px;padding:0 22px;border-radius:999px;border:0;
+  background:var(--accent);color:var(--accent-ink);font:700 1.1rem/1 "Barlow",system-ui,sans-serif;white-space:nowrap;box-shadow:0 8px 22px rgba(0,0,0,.4);font-variant-numeric:tabular-nums}
+.arm[hidden]{display:none}
+.arm i{width:11px;height:11px;border-radius:50%;background:currentColor}
+.arm.armed{background:rgba(255,90,90,.95);color:#fff}
+.arm.armed i{animation:blink 1s steps(2,start) infinite}
+.arm.held i{background:none;width:auto;height:auto}
+.arm.held i::before{content:"↻";font-style:normal;font-size:1.25rem}
+@keyframes blink{to{visibility:hidden}}
+.cam.setting .arm{display:none!important}
+.arm2{display:none}
+.pop-tap{display:none!important}
+/* narrow phone screens: the button goes under the picture and the result card stays small, so neither covers the stumps */
+@media (max-width:560px){
+  .cam:not(.full) .arm:not(.arm2){display:none!important}
+  .cam:not(.full) .arm2:not([hidden]){display:flex;position:static;transform:none;width:100%;justify-content:center;margin-top:10px;height:54px;font-size:1.15rem}
+  .cam:not(.full) .pop-fig{display:none}
+  .cam:not(.full) .pop-tap{display:block!important;text-decoration:underline}
+  .cam:not(.full) .toast.held{padding:9px 14px}
+}
+/* decision picture viewer */
+.snapview{position:fixed;inset:0;z-index:300;background:#05080A;touch-action:none;user-select:none;-webkit-user-select:none}
+.snapview[hidden]{display:none}
+.sv-stage{position:absolute;inset:0;overflow:hidden;cursor:grab}
+.sv-stage img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none}
+.sv-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(10px,env(safe-area-inset-top)) 12px 10px;
+  background:linear-gradient(rgba(5,8,10,.85),rgba(5,8,10,0));color:#fff;font:600 1rem/1.2 "Barlow",system-ui,sans-serif;pointer-events:none}
+.sv-top > *{pointer-events:auto}
+.sv-bar{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:12px 12px max(12px,env(safe-area-inset-bottom));
+  background:linear-gradient(rgba(5,8,10,0),rgba(5,8,10,.85))}
+.sv-pill{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-line);color:#fff;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font:600 .95rem/1 "Barlow",system-ui,sans-serif;text-decoration:none}
+#svImpact{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.snapbtn{margin-top:10px}
+.lthumb{flex:none;width:52px;height:39px;padding:0;border-radius:8px;border:1px solid var(--line2);background:#000 center/cover no-repeat;cursor:zoom-in}
 @keyframes popin{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 
@@ -256,6 +297,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
 .log .v{font:700 1.05rem/1 "Barlow Condensed","Arial Narrow",sans-serif;padding:6px 10px;border-radius:999px;background:var(--surface3);white-space:nowrap}
 .log .v.hitting{color:#0B1206;background:var(--hit)} .log .v.missing{color:#fff;background:#C9373C} .log .v.clipping{color:#0B1206;background:var(--call)} .log .v.wide{color:#0B1206;background:var(--wide)}
 .log .meta{font-size:.8rem;color:var(--muted)}
+.log li > div{flex:1;min-width:0}
 .log .empty-log{cursor:default;color:var(--muted);font-size:.9rem}
 .log .empty-log:hover{background:none}
 
@@ -421,8 +463,10 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
 
           <div class="hint" id="hint" hidden></div>
           <div class="toast" id="pop" hidden></div>
+          <button class="arm" id="armBtn" hidden aria-label="Ready: watch for a delivery"><i aria-hidden="true"></i><span id="armTxt">Ready</span></button>
         </div>
 
+        <button class="arm arm2" id="armBtn2" hidden aria-label="Ready: watch for a delivery"><i aria-hidden="true"></i><span>Ready</span></button>
         <div class="grip" id="grip" role="slider" tabindex="0" aria-label="Picture size" aria-valuemin="50" aria-valuemax="100" aria-valuenow="100" hidden>
           <span class="grip-bar"></span><span class="grip-txt">Drag to resize the picture</span>
         </div>
@@ -456,6 +500,22 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
             <label class="switch"><input type="checkbox" id="legOn"><span></span>Leg-side wides</label>
           </div>
           <p class="small" id="setupHelp"></p>
+        </div>
+
+        <!-- decision picture: pinch, drag, + / − to zoom -->
+        <div class="snapview" id="snapView" role="dialog" aria-modal="true" aria-label="Decision picture" hidden>
+          <div class="sv-stage" id="svStage"><img id="svImg" alt="Decision picture: the ball's path and the impact point" draggable="false"></div>
+          <div class="sv-top"><b id="svTitle"></b><button class="glass" id="svClose" aria-label="Close">✕</button></div>
+          <div class="sv-bar">
+            <div class="zoomgrp">
+              <button class="glass" id="svOut" aria-label="Zoom out">−</button>
+              <span id="svLbl">1.0×</span>
+              <button class="glass" id="svIn" aria-label="Zoom in">+</button>
+            </div>
+            <button class="sv-pill" id="svImpact">Zoom to impact</button>
+            <button class="sv-pill" id="svFit">Whole picture</button>
+            <a class="sv-pill" id="svSave" download="decision.jpg">Save</a>
+          </div>
         </div>
       </div>
 
@@ -494,6 +554,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
           <button class="speed-btn" id="speedBtn" aria-label="Ball speed. Tap to switch between mph and km/h"><b id="speed">––</b><span id="speedUnit">mph</span></button>
         </div>
         <div class="board-note" id="note">Start the camera to begin</div>
+        <button class="ghost sm snapbtn" id="snapBtn" hidden>View decision picture</button>
         <div class="board-stats">
           <div><b id="dist">––</b><span>to stumps</span></div>
           <div><b id="nDel">0</b><span>deliveries</span></div>
@@ -505,6 +566,8 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
           <h3>Deliveries</h3>
           <button class="ghost sm" id="clearBtn">Clear</button>
         </div>
+        <label class="switch"><input type="checkbox" id="manualOn"><span></span>Manual: tap Ready before each delivery</label>
+        <p class="small" style="margin-top:0">On: after Ready, one delivery is judged and the result stays until Next ball. Off: every delivery is picked up by itself.</p>
         <ul class="log" id="log"><li class="empty-log">Deliveries appear here. Tap one to see its path again.</li></ul>
       </div>
 
@@ -626,7 +689,13 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   let wkFlashUntil = 0, previewUntil = 0, ballMark = null, setup = null;
   let zone = null, wk = null, wideAdj = { dx: 0, g: 1 }, batAdj = { dx: 0, s: 1 }, viewZoom = 1, demoOn = false;
   let ref = null, avg = null, refMean = 0, off = { x: 0, y: 0 }, recent = [], frameNo = 0;
-  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph', widesOn: true, legWides: true, hand: 'R', stageScale: 1 };
+  const S = { white: 190, sat: 50, motion: 24, minA: 3, maxA: 1200, showMask: false, behind: 2, camZoom: 1, unit: 'mph', widesOn: true, legWides: true, hand: 'R', stageScale: 1, manual: true };
+  // Manual deliveries (S.manual): tap Ready, the tracker watches for one delivery, gives the decision and then holds
+  // it until Next ball. arm.state: 'idle' (not watching), 'armed' (watching), 'held' (showing a result).
+  const ARM_S = 20;
+  const arm = { state: 'idle', until: 0, cands: [], decideAt: 0 };
+  const watching = () => !S.manual || arm.state === 'armed';
+  const rejects = []; // why recent tracks were not counted as deliveries (for tests and tuning)
 
   // ---------- persistence ----------
   // v3: camera at the bowler's end, looking at the batter's wicket
@@ -694,7 +763,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
   $('resetBtn').onclick = () => { if (setup) exitSetup(true); zone = null; wk = null; wideAdj = { dx: 0, g: 1 }; ballMark = null; ref = null; off = { x: 0, y: 0 }; setMode(null); save(); rejudge(); updateSetupBtn(); flash('Wicket and wide lines cleared'); };
-  $('clearBtn').onclick = () => { deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); };
+  $('clearBtn').onclick = () => { clearDeliveries(); if (arm.state === 'held') setArm('idle'); $('pop').hidden = true; renderLog(); updateBoard(); };
   $('behind').value = S.behind;
   $('behind').addEventListener('change', () => {
     const v = parseFloat($('behind').value);
@@ -852,6 +921,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     video.pause();
     video.srcObject = null;
     tracks = []; prevValid = false;
+    setArm('idle'); $('pop').hidden = true;
   }
 
   function onSourceReady() {
@@ -871,6 +941,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     ref = null; avg = null; recent = []; refHoldUntil = performance.now() + 1500;
     sizeCanvas();
     scheduleFrame();
+    setArm('idle');
     updateBoard();
   }
 
@@ -1070,6 +1141,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       pruneTracks();
       return;
     }
+    if (!watching()) { candidates = []; tracks = []; perf.track += performance.now() - t4; return; }
     candidates = findCandidates();
     updateTracks(candidates, t);
     perf.track += performance.now() - t4;
@@ -1120,13 +1192,13 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     stamp++;
     if (vis[seed] === stamp) return null;
     let sp = 0; stack[sp++] = seed; vis[seed] = stamp;
-    let area = 0, sx = 0, sy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
+    let area = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
     while (sp) {
       const j = stack[--sp]; area++;
       if (area > cap) return { bad: true }; // too big to be a ball (shirt, pad, sightscreen, or a ball touching a white line)
 
       const x = j % PW, y = (j / PW) | 0;
-      sx += x; sy += y;
+      sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
       for (let dy = -1; dy <= 1; dy++) {
         const yy = y + dy; if (yy < 0 || yy >= PH) continue;
@@ -1141,9 +1213,21 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
     const fill = area / (bw * bh), asp = Math.max(bw, bh) / Math.min(bw, bh);
     if (fill < 0.35 || asp > 3.5) return { bad: true };
+    // Shape from the blob's spread (second moments): el = how stretched it is (1 = round; a fast ball can blur
+    // into a short streak), so = how solid (about 1 for a filled round or oval blob; low for L shapes, rings, limbs).
+    // Only measured when there are enough pixels to say.
+    const mx = sx / area, my = sy / area;
+    let el, so;
+    if (area >= 12) {
+      const vxx = sxx / area - mx * mx + 1 / 12, vyy = syy / area - my * my + 1 / 12, vxy = sxy / area - mx * my;
+      const tr = vxx + vyy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - (vxx * vyy - vxy * vxy)));
+      const l1 = tr / 2 + disc, l2 = Math.max(0.02, tr / 2 - disc);
+      el = Math.sqrt(l1 / l2); so = area / (4 * Math.PI * Math.sqrt(l1 * l2));
+      if (el > 3 || so < 0.6) return { bad: true }; // clearly not a ball (or a ball merged with something else)
+    }
     const dEq = 2 * Math.sqrt(area / Math.PI);
     // e: touching the edge of the picture, so only part of the ball is visible and its size can't be trusted
-    return { x: sx / area, y: sy / area, d: (dEq + Math.min(bw, bh)) / 2, e: x0 <= 1 || y0 <= 1 || x1 >= PW - 2 || y1 >= PH - 2 };
+    return { x: mx, y: my, d: (dEq + Math.min(bw, bh)) / 2, e: x0 <= 1 || y0 <= 1 || x1 >= PW - 2 || y1 >= PH - 2, el, so };
   }
 
   // Tap on a still ball: learn its colour, measure it and show its distance
@@ -1237,13 +1321,14 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         if (tr.pts.length < 2) { tr.vx = nvx; tr.vy = nvy; tr.spd = Math.hypot(nvx, nvy); }
         else { tr.vx = 0.5 * tr.vx + 0.5 * nvx; tr.vy = 0.5 * tr.vy + 0.5 * nvy; tr.spd = 0.5 * tr.spd + 0.5 * Math.hypot(nvx, nvy); }
 
-        tr.pts.push({ x: c.x, y: c.y, d: c.d, t, e: !!c.e });
+        tr.pts.push({ x: c.x, y: c.y, d: c.d, t, e: !!c.e, el: c.el, so: c.so });
         tr.miss = 0;
+        if (looksLikeBall(tr)) grabFrame(tr, t);
       } else tr.miss++;
     }
     pruneTracks();
     for (let k = 0; k < cands.length; k++) {
-      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t, e: !!cands[k].e }], vx: 0, vy: 0, miss: 0 });
+      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t, e: !!cands[k].e, el: cands[k].el, so: cands[k].so }], vx: 0, vy: 0, miss: 0 });
     }
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
@@ -1264,20 +1349,291 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
 
   const median = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
 
+  // Is this track a real delivery? A bowled ball is round in the picture, is first seen near the bowler, gets
+  // steadily smaller as it travels away towards the far wicket, and its size fits a steady run down the pitch at a
+  // believable speed. Returns null if it passes, otherwise the reason it doesn't count.
+  // Throws back to the bowler, people walking or running, waving arms, pads and balls going sideways all fail.
+  function notABall(pts) {
+    const n = pts.length;
+    if (n < 6) return 'too few frames';
+    const f = focalProc(), Dw = stumpsDist();
+    const first = median(pts.slice(0, 3).map(p => p.d)), last = median(pts.slice(-3).map(p => p.d));
+    if (last > first * 0.8) return 'not getting smaller';
+    // steadily smaller: each sighting against the one a quarter of the track later
+    const q = Math.max(2, Math.round(n / 4));
+    let ok = 0, all = 0;
+    for (let k = 0; k + q < n; k++) { all++; if (pts[k + q].d <= pts[k].d * 1.06) ok++; }
+    if (ok < all * 0.8) return 'size not shrinking steadily';
+    if (f * BALL / first > Dw * 0.65) return 'first seen too far away';
+    const sh = pts.filter(p => p.el != null);
+    if (sh.length >= 3 && (median(sh.map(p => p.el)) > 1.8 || median(sh.map(p => p.so)) < 0.75)) return 'not round';
+    const t0 = pts[0].t, fz = fitDepth(pts, f, t0);
+    if (!fz || fz.b < 5 || fz.b > 60) return 'speed not believable';
+    let sw = 0, se = 0;
+    for (const p of pts) {
+      if (p.e) continue;
+      const z = fz.a + fz.b * (p.t - t0), w = p.d * p.d;
+      sw += w; se += w * Math.abs(f * BALL / p.d - z) / Math.abs(z);
+    }
+    if (sw && se / sw > 0.15) return 'size doesn\'t fit a ball travelling down the pitch';
+    return null;
+  }
+
   function finalize(tr) {
     const pts = tr.pts;
-    if (pts.length < MIN_PTS || !wk || setup) return; // nothing to judge until the wicket is set (and setup is done)
-    // only balls travelling away from the camera, towards the far wicket, count: they get smaller.
-    // Throws back to the bowler, people walking and balls going sideways are ignored.
-    const grow = median(pts.slice(-3).map(p => p.d)) / median(pts.slice(0, 3).map(p => p.d));
-    if (grow > 0.85) return;
+    if (pts.length < MIN_PTS || !wk || setup || !watching()) return; // nothing to judge until the wicket is set (and setup is done)
+    const why = notABall(pts);
+    if (why) { if (pts.length >= 6) { rejects.push(why); if (rejects.length > 30) rejects.shift(); } return; }
     const hand = S.hand, res = judge(pts, hand);
     if (res.offTarget) return; // heading nowhere near the stumps or the wide lines
-    const del = { id: nextId++, pts: pts.map(p => ({ ...p })), at: new Date(), res, hand, speed: speedOf(pts) };
+    const c = { pts: pts.map(p => ({ ...p })), res, hand, speed: speedOf(pts), snap: tr.snap };
+    if (!S.manual) { accept(c); return; }
+    // manual: wait a moment in case another track ends too, then take the most convincing one (see armTick)
+    arm.cands.push(c);
+    if (!arm.decideAt) arm.decideAt = performance.now() + 250;
+  }
+  function accept(c) {
+    const del = { id: nextId++, pts: c.pts, at: new Date(), res: c.res, hand: c.hand, speed: c.speed };
     deliveries.push(del);
-    if (deliveries.length > 50) deliveries.shift();
+    if (deliveries.length > 50) dropSnap(deliveries.shift());
     selected = del;
+    if (c.snap) try { makeSnap(del, c.snap); } catch (e) { console.error(e); }
     renderLog(); updateBoard(); popVerdict(del);
+    return del;
+  }
+  function clearDeliveries() { deliveries.forEach(dropSnap); deliveries = []; selected = null; nextId = 1; }
+
+  // ---------- decision picture viewer: pinch, drag, double-tap, wheel or + / − ----------
+  const sv = { el: $('snapView'), st: $('svStage'), img: $('svImg'), z: 1, tx: 0, ty: 0, fit: 1, d: null };
+  const svPtrs = new Map();
+  let svGest = null, svLastTap = 0;
+  function openSnap(d) {
+    if (!d || !d.snap) return;
+    sv.d = d;
+    $('svTitle').textContent = 'Ball ' + d.id + ' · ' + (d.res.verdict ? d.res.label : 'No decision') + (d.speed ? ' · ' + fmtSpeed(d.speed) : '');
+    $('svSave').href = d.snap; $('svSave').download = 'ball-' + d.id + '-decision.jpg';
+    $('svImpact').hidden = !d.snapImp;
+    sv.el.hidden = false;
+    const go = () => svToImpact();
+    if (sv.img.getAttribute('src') === d.snap && sv.img.naturalWidth) go();
+    else { sv.img.onload = go; sv.img.src = d.snap; }
+  }
+  function closeSnap() { sv.el.hidden = true; svPtrs.clear(); svGest = null; }
+  function svBox() { return sv.st.getBoundingClientRect(); }
+  function svApply() {
+    const r = svBox(), W = sv.img.naturalWidth * sv.z, H = sv.img.naturalHeight * sv.z;
+    // keep the picture on screen: centred when smaller than the screen, otherwise no empty edges
+    sv.tx = W <= r.width ? (r.width - W) / 2 : Math.min(0, Math.max(r.width - W, sv.tx));
+    sv.ty = H <= r.height ? (r.height - H) / 2 : Math.min(0, Math.max(r.height - H, sv.ty));
+    sv.img.style.transform = 'translate(' + sv.tx.toFixed(1) + 'px,' + sv.ty.toFixed(1) + 'px) scale(' + sv.z.toFixed(4) + ')';
+    $('svLbl').textContent = (sv.z / sv.fit).toFixed(1) + '×';
+  }
+  function svFitScale() { const r = svBox(); sv.fit = Math.min(r.width / sv.img.naturalWidth, r.height / sv.img.naturalHeight) || 1; }
+  function svZoomAbout(x, y, z) {
+    z = Math.min(sv.fit * 12, Math.max(sv.fit, z));
+    sv.tx = x - (x - sv.tx) * z / sv.z; sv.ty = y - (y - sv.ty) * z / sv.z; sv.z = z;
+    svApply();
+  }
+  function svWhole() { svFitScale(); sv.z = sv.fit; sv.tx = sv.ty = 0; svApply(); }
+  // zoom in on the impact point, so the wicket area (about 4 wicket heights) fills the screen's shorter side
+  function svToImpact() {
+    svFitScale();
+    const i = sv.d && sv.d.snapImp;
+    if (!i) { svWhole(); return; }
+    const r = svBox(), nw = sv.img.naturalWidth, nh = sv.img.naturalHeight;
+    sv.z = Math.min(sv.fit * 12, Math.max(sv.fit * 2, Math.min(r.width, r.height) / (i.h * nh * 4)));
+    sv.tx = r.width / 2 - i.x * nw * sv.z; sv.ty = r.height / 2 - i.y * nh * sv.z;
+    svApply();
+  }
+  const svXY = e => { const r = svBox(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  sv.st.addEventListener('pointerdown', e => {
+    sv.st.setPointerCapture(e.pointerId);
+    const p = svXY(e); svPtrs.set(e.pointerId, p);
+    if (svPtrs.size === 1) {
+      const now = performance.now();
+      if (now - svLastTap < 300) { svLastTap = 0; if (sv.z > sv.fit * 1.3) svWhole(); else svToImpact(); svGest = null; return; }
+      svLastTap = now;
+      svGest = { type: 'pan', last: p };
+    } else if (svPtrs.size === 2) {
+      const [a, b] = [...svPtrs.values()];
+      svGest = { type: 'pinch', d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: sv.z, m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+    }
+  });
+  sv.st.addEventListener('pointermove', e => {
+    if (!svPtrs.has(e.pointerId) || !svGest) return;
+    const p = svXY(e); svPtrs.set(e.pointerId, p);
+    if (svGest.type === 'pan' && svPtrs.size === 1) {
+      sv.tx += p.x - svGest.last.x; sv.ty += p.y - svGest.last.y; svGest.last = p; svApply();
+    } else if (svGest.type === 'pinch' && svPtrs.size === 2) {
+      const [a, b] = [...svPtrs.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      sv.tx += m.x - svGest.m.x; sv.ty += m.y - svGest.m.y; svGest.m = m;
+      svZoomAbout(m.x, m.y, svGest.z0 * Math.hypot(a.x - b.x, a.y - b.y) / svGest.d0);
+    }
+  });
+  const svUp = e => {
+    svPtrs.delete(e.pointerId);
+    if (svPtrs.size === 1) { const p = [...svPtrs.values()][0]; svGest = { type: 'pan', last: p }; }
+    else if (!svPtrs.size) svGest = null;
+  };
+  ['pointerup', 'pointercancel'].forEach(t => sv.st.addEventListener(t, svUp));
+  sv.st.addEventListener('wheel', e => { e.preventDefault(); const p = svXY(e); svZoomAbout(p.x, p.y, sv.z * (e.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
+  const svCentre = () => { const r = svBox(); return [r.width / 2, r.height / 2]; };
+  $('svIn').onclick = () => svZoomAbout(...svCentre(), sv.z * 1.5);
+  $('svOut').onclick = () => svZoomAbout(...svCentre(), sv.z / 1.5);
+  $('svFit').onclick = svWhole;
+  $('svImpact').onclick = svToImpact;
+  $('svClose').onclick = closeSnap;
+  $('snapBtn').onclick = () => openSnap(selected);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sv.el.hidden) { e.stopPropagation(); closeSnap(); } });
+  window.addEventListener('resize', () => { if (!sv.el.hidden) { const k = sv.z / sv.fit; svFitScale(); sv.z = sv.fit * k; svApply(); } });
+
+  // ---------- manual deliveries: Ready -> one delivery -> result held until Next ball ----------
+  function setArm(st) {
+    arm.state = st; arm.cands = []; arm.decideAt = 0; tracks = [];
+    if (st === 'armed') {
+      arm.until = performance.now() + ARM_S * 1000;
+      selected = null; $('pop').hidden = true; renderLog(); updateBoard();
+    }
+    updateArmBtn();
+  }
+  function armTick(now) {
+    if (arm.state !== 'armed') return;
+    if (arm.cands.length && now >= arm.decideAt) {
+      const score = c => c.pts.length + (c.res.verdict ? 1000 : 0);
+      const best = arm.cands.reduce((a, b) => score(b) > score(a) ? b : a);
+      setArm('held'); accept(best);
+      return;
+    }
+    if (now > arm.until) { setArm('idle'); updateBoard(); flash('No delivery seen. Tap Ready just before the bowler bowls.', 3500); return; }
+    updateArmBtn(now);
+  }
+  // two copies of the button: on the picture, and (on narrow phone screens, outside full screen) under it
+  function updateArmBtn(now) {
+    const secs = Math.max(0, Math.ceil((arm.until - (now || performance.now())) / 1000));
+    const txt = arm.state === 'armed' ? 'Watching… ' + secs + ' s' : arm.state === 'held' ? 'Next ball' : 'Ready';
+    for (const b of [$('armBtn'), $('armBtn2')]) {
+      b.hidden = !S.manual || !running;
+      b.classList.toggle('armed', arm.state === 'armed'); b.classList.toggle('held', arm.state === 'held');
+      if (b.dataset.txt === txt) continue;
+      b.dataset.txt = txt; b.querySelector('span').textContent = txt;
+      b.setAttribute('aria-label', arm.state === 'armed' ? 'Watching for a delivery. Tap to stop' : arm.state === 'held' ? 'Next ball: watch for the next delivery' : 'Ready: watch for a delivery');
+    }
+  }
+  function armPress() {
+    if (!running || setup) return;
+    if (!wk) { flash('Set up the wicket first', 2000); return; }
+    setArm(arm.state === 'armed' ? 'idle' : 'armed');
+    if (arm.state === 'idle') updateBoard();
+  }
+  $('armBtn').onclick = armPress; $('armBtn2').onclick = armPress;
+  // Space or Enter (e.g. a keyboard) does the same as the button
+  document.addEventListener('keydown', e => {
+    if ((e.key === ' ' || e.key === 'Enter') && e.target === document.body && !$('trackerView').hidden && $('snapView').hidden && S.manual && running) { e.preventDefault(); armPress(); }
+  });
+  $('manualOn').checked = S.manual;
+  $('manualOn').addEventListener('change', e => {
+    S.manual = e.target.checked; save(); setArm('idle'); $('pop').hidden = true; updateBoard();
+    flash(S.manual ? 'Manual: tap Ready before each delivery' : 'Automatic: every delivery is picked up', 2500);
+  });
+
+  // ---------- decision picture ----------
+  // While a track looks like a delivery, the frame of its latest sighting is copied (camera resolution, up to
+  // 1600 px), so when it is judged there is a picture of the ball nearest the stumps. The path, the projected line,
+  // the wicket and the impact point are drawn on it; it can be opened and zoomed.
+  function grabFrame(tr, t) {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+    if (!tr.snap) tr.snap = { c: document.createElement('canvas') };
+    const c = tr.snap.c, k = Math.min(1, 1600 / Math.max(vw, vh)), W = Math.round(vw * k), H = Math.round(vh * k);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const t0 = performance.now(), g = c.getContext('2d');
+    g.drawImage(video, 0, 0, W, H);
+    if (demo.mode === 'cam') paintBall(g, W, H, 0, 0, t * 1000);
+    tr.snap.t = t;
+    perf.grab = (perf.grab || 0) + performance.now() - t0; perf.ng = (perf.ng || 0) + 1;
+  }
+  function dropSnap(d) { if (d && d.snap) { try { URL.revokeObjectURL(d.snap); } catch (e) {} d.snap = null; } }
+  function makeSnap(del, snap) {
+    const src = snap.c, W = src.width, H = src.height, sx = W / PW, sy = H / PH;
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const g = out.getContext('2d');
+    g.drawImage(src, 0, 0);
+    const lw = Math.max(1.5, W / 700), res = del.res, col = res.verdict ? VCOL[res.verdict] : '#E5ECE7';
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    // the stumps zone (thin, so the real stumps stay visible) and the wide limits at the crease
+    const r = wkRect(W, H);
+    if (r) {
+      g.save(); g.strokeStyle = 'rgba(53,167,255,0.95)'; g.lineWidth = lw; g.setLineDash([lw * 3, lw * 2]);
+      g.strokeRect(r.x0, r.y0, r.w, r.h); g.restore();
+      const wn = widesNow(del.hand);
+      if (wn) for (const [x, c2] of [[wn.off, '#FF9F1C'], [wn.leg, 'rgba(120,205,255,0.9)']]) {
+        if (x == null) continue;
+        g.save(); g.strokeStyle = c2; g.lineWidth = lw; g.setLineDash([lw * 2, lw * 2]);
+        g.beginPath(); g.moveTo(x * W, wn.y * H - r.h * 1.4); g.lineTo(x * W, wn.y * H + r.h * 0.3); g.stroke(); g.restore();
+      }
+    }
+    // tracked path: a line through the sightings, with a ring round the ball in this frame
+    const pts = del.pts, last = pts[pts.length - 1];
+    g.save();
+    g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = lw * 2.6;
+    g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p.x * sx, p.y * sy) : g.moveTo(p.x * sx, p.y * sy)); g.stroke();
+    g.strokeStyle = '#FF3F8E'; g.lineWidth = lw * 1.2;
+    g.beginPath(); pts.forEach((p, k) => k ? g.lineTo(p.x * sx, p.y * sy) : g.moveTo(p.x * sx, p.y * sy)); g.stroke();
+    g.fillStyle = '#FF3F8E';
+    pts.forEach(p => { g.beginPath(); g.arc(p.x * sx, p.y * sy, lw * 1.3, 0, Math.PI * 2); g.fill(); });
+    const shot = pts.find(p => p.t === snap.t) || last;
+    g.strokeStyle = '#fff'; g.lineWidth = lw;
+    g.beginPath(); g.arc(shot.x * sx, shot.y * sy, shot.d * sx / 2 + lw * 3, 0, Math.PI * 2); g.stroke();
+    g.restore();
+    // where the ball would have gone, and the impact point
+    let imp = null;
+    if (res.verdict) {
+      const ix = res.x * W, iy = res.y * H, ir = Math.max(lw * 2, res.r * H);
+      g.save();
+      g.strokeStyle = col; g.lineWidth = lw * 1.2;
+      if (res.projected) { g.setLineDash([lw * 3, lw * 2.5]); g.beginPath(); g.moveTo(last.x * sx, last.y * sy); g.lineTo(ix, iy); g.stroke(); g.setLineDash([]); }
+      g.fillStyle = col; g.globalAlpha = 0.45; g.beginPath(); g.arc(ix, iy, ir, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1; g.beginPath(); g.arc(ix, iy, ir, 0, Math.PI * 2); g.stroke();
+      // cross-hair through the impact point
+      g.lineWidth = lw * 0.8; g.beginPath();
+      g.moveTo(ix - ir * 2.6, iy); g.lineTo(ix - ir * 1.3, iy); g.moveTo(ix + ir * 1.3, iy); g.lineTo(ix + ir * 2.6, iy);
+      g.moveTo(ix, iy - ir * 2.6); g.lineTo(ix, iy - ir * 1.3); g.moveTo(ix, iy + ir * 1.3); g.lineTo(ix, iy + ir * 2.6); g.stroke();
+      const fs = Math.max(11, ir * 1.1);
+      g.font = '600 ' + fs + 'px "Barlow Condensed","Arial Narrow",sans-serif'; g.textAlign = 'left';
+      const tx = res.crease ? 'At the crease' : 'Impact';
+      const tw = g.measureText(tx).width + fs * 0.6;
+      g.fillStyle = 'rgba(10,20,14,0.8)'; g.fillRect(ix + ir * 2.8, iy - fs * 0.7, tw, fs * 1.3);
+      g.fillStyle = '#fff'; g.fillText(tx, ix + ir * 2.8 + fs * 0.3, iy + fs * 0.35);
+      g.restore();
+      imp = { x: ix / W, y: iy / H };
+    }
+    // title bar: decision, speed, ball number and time
+    const fs = Math.max(16, W / 38), pad = fs * 0.5;
+    g.font = '700 ' + fs + 'px "Barlow Condensed","Arial Narrow",sans-serif'; g.textAlign = 'left';
+    const head = res.verdict ? res.label : 'No decision';
+    const sub = [del.speed ? fmtSpeed(del.speed) : '', 'Ball ' + del.id, del.at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), (del.hand === 'L' ? 'LH' : 'RH') + ' batter'].filter(Boolean).join('  ·  ');
+    const hw = g.measureText(head).width;
+    g.fillStyle = col; g.fillRect(pad, pad, hw + pad * 2, fs * 1.4);
+    g.fillStyle = '#0B1206'; g.fillText(head, pad * 2, pad + fs * 1.05);
+    g.font = '600 ' + fs * 0.62 + 'px "Barlow",system-ui,sans-serif';
+    const sw2 = g.measureText(sub).width;
+    g.fillStyle = 'rgba(10,20,14,0.78)'; g.fillRect(pad, pad + fs * 1.5, sw2 + pad * 2, fs * 0.95);
+    g.fillStyle = '#fff'; g.fillText(sub, pad * 2, pad + fs * 2.18);
+    // where to zoom: the impact point (or the ball), at a scale that shows the wicket area
+    const fx = imp || { x: shot.x / PW, y: shot.y / PH };
+    del.snapImp = { x: fx.x, y: fx.y, h: r ? r.h / H : 0.1 };
+    // small picture for the result card and the log: cropped round the impact point
+    const th = document.createElement('canvas'); th.width = 192; th.height = 144;
+    const ch = Math.min(H, Math.max(r ? r.h * 3 : H / 4, H / 6)), cw = ch * 4 / 3;
+    const cx0 = Math.min(W - cw, Math.max(0, fx.x * W - cw / 2)), cy0 = Math.min(H - ch, Math.max(0, fx.y * H - ch / 2));
+    th.getContext('2d').drawImage(out, cx0, cy0, cw, ch, 0, 0, 192, 144);
+    del.thumb = th.toDataURL('image/jpeg', 0.8);
+    out.toBlob(b => {
+      if (!b) return;
+      if (!deliveries.includes(del)) return;
+      del.snap = URL.createObjectURL(b);
+      renderLog(); updateBoard();
+    }, 'image/jpeg', 0.92);
   }
 
   // least-squares straight line v = a + b t, optionally weighted
@@ -1403,9 +1759,13 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     v.className = 'board-verdict';
     if (!selected) {
       v.textContent = !running ? 'Ready' : wk ? 'Ready' : 'No wicket';
-      $('note').textContent = !running ? 'Start the camera to begin' : setup ? 'Finish setting up, then tap Done' : wk ? 'Waiting for a delivery' : 'Tap Set up wicket to get decisions';
+      $('note').textContent = !running ? 'Start the camera to begin' : setup ? 'Finish setting up, then tap Done' : !wk ? 'Tap Set up wicket to get decisions'
+        : !S.manual ? 'Waiting for a delivery' : arm.state === 'armed' ? 'Watching for the delivery…' : 'Tap Ready just before the ball is bowled';
+      if (running && wk && S.manual && arm.state === 'armed') v.textContent = 'Watching';
+      $('snapBtn').hidden = true;
       return;
     }
+    $('snapBtn').hidden = !selected.snap;
     const res = selected.res;
     if (res.verdict) { v.textContent = res.label; v.classList.add(res.verdict); }
     else v.textContent = 'No decision';
@@ -1413,13 +1773,27 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   }
   const VCOL = { hitting: '#3DDC84', missing: '#FF5A5A', clipping: '#F3C433', wide: '#FF9F1C' };
   let popTimer = null;
+  // the result card on the picture: in manual mode it stays (with the decision picture) until Next ball
   function popVerdict(d) {
     const p = $('pop');
-    if (!d.res.verdict && !d.speed) return;
-    p.textContent = d.res.verdict ? d.res.label : 'No decision';
-    if (d.speed) { const sm = document.createElement('small'); sm.textContent = fmtSpeed(d.speed); p.appendChild(sm); }
+    if (!d.res.verdict && !d.speed && !S.manual) return;
+    p.innerHTML = '';
+    const txt = document.createElement('div'); txt.className = 'pop-txt';
+    txt.textContent = d.res.verdict ? d.res.label : 'No decision';
+    if (d.speed) { const sm = document.createElement('small'); sm.textContent = fmtSpeed(d.speed); txt.appendChild(sm); }
+    if (S.manual && d.thumb) { const tp = document.createElement('small'); tp.className = 'pop-tap'; tp.textContent = 'Tap for picture'; txt.appendChild(tp); }
+    p.appendChild(txt);
+    if (S.manual && d.thumb) {
+      const im = document.createElement('img'); im.src = d.thumb; im.alt = ''; im.className = 'pop-img';
+      const fig = document.createElement('div'); fig.className = 'pop-fig';
+      const cap = document.createElement('span'); cap.textContent = 'Tap to zoom';
+      fig.append(im, cap); p.appendChild(fig);
+    }
     p.style.background = d.res.verdict ? VCOL[d.res.verdict] : '#E5ECE7';
-    p.hidden = false; clearTimeout(popTimer); popTimer = setTimeout(() => { p.hidden = true; }, 2500);
+    p.classList.toggle('held', S.manual);
+    p.onclick = S.manual ? () => openSnap(d) : null;
+    p.hidden = false; clearTimeout(popTimer);
+    if (!S.manual) popTimer = setTimeout(() => { p.hidden = true; }, 2500);
   }
   function renderLog() {
     const ul = $('log'); ul.innerHTML = '';
@@ -1437,6 +1811,12 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       left.append(name, meta);
       const v = document.createElement('span'); v.className = 'v ' + (d.res.verdict || '');
       v.textContent = d.res.verdict ? d.res.label : '–';
+      if (d.thumb) {
+        const im = document.createElement('button'); im.className = 'lthumb'; im.style.backgroundImage = 'url(' + d.thumb + ')';
+        im.setAttribute('aria-label', 'Decision picture for ball ' + d.id);
+        im.onclick = e => { e.stopPropagation(); openSnap(d); };
+        li.append(im);
+      }
       li.append(left, v);
       const choose = () => { selected = d; renderLog(); updateBoard(); };
       li.onclick = choose;
@@ -1457,6 +1837,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   window.addEventListener('resize', sizeCanvas);
 
   function drawLoop(now) {
+    armTick(performance.now());
     draw();
     if (now - fpsT > 1000) { $('fps').textContent = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; }
     requestAnimationFrame(drawLoop);
@@ -2048,6 +2429,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     if (!demo.mode || demo.ball || setup) return;
     const geo = demoGeometry(demo.canvas.width, demo.canvas.height);
     if (!geo) { flash('Line up the wicket first', 2000); return; }
+    if (S.manual && arm.state !== 'armed' && wk) setArm('armed'); // the demo presses Ready for you
     demo.ball = makeBall(demo.kind, geo.hc);
     demo.ball.ghc = geo.hc;
     demo.last = { kind: demo.ball.kind, V: demo.ball.V, b: demo.ball }; // for tests
@@ -2090,7 +2472,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     try { await video.play(); } catch (e) {}
     camEl.classList.add('demo');
     $('tools').hidden = true; $('demoBar').hidden = false; $('demoBowl').disabled = false;
-    deliveries = []; selected = null; nextId = 1;
+    clearDeliveries();
     setupZoom(); onSourceReady(); keepAwake();
     renderLog(); updateBoard();
     if (src === 'cam') {
@@ -2110,7 +2492,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     if (camEl.classList.contains('full')) setFull(false);
     $('demoBar').hidden = true; $('tools').hidden = false;
     $('empty').hidden = false; ['zoomCtl', 'handCtl', 'liveChip', 'grip'].forEach(id => { $(id).hidden = true; });
-    deliveries = []; selected = null; nextId = 1; renderLog(); updateBoard(); updateSetupBtn(); hint(null);
+    clearDeliveries(); renderLog(); updateBoard(); updateSetupBtn(); hint(null);
   }
   $('demoBtn2').onclick = () => startDemo('sim');
   $('demoExit').onclick = exitDemo;
@@ -2213,7 +2595,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
 
   updateSetupBtn();
   window.__demo = () => demo.last;
-  window.__wkt = () => ({ deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
+  window.__wkt = () => ({ arm: arm.state, rejects, manual: S.manual, deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
  // for testing
   updateBoard();
   requestAnimationFrame(drawLoop);
