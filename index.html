@@ -598,6 +598,8 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         </div>
         <p class="small">Learn ball colour: hold a ball still in view, tap the button, then tap the ball.</p>
         <label class="switch"><input type="checkbox" id="showMask"><span></span>Show what the tracker sees</label>
+        <div class="row" style="margin-top:14px"><button class="ghost" id="recBtn">Record a 10 s test clip</button></div>
+        <p class="small" id="recNote">Records the camera (with the phone where it normally stands) while a few balls are bowled, and saves the video. Send it to the developer to tune the tracker on real footage.</p>
         <p class="small">Pink is what it thinks is a moving white ball. If it misses the ball, lower brightness or movement. If it grabs shirts and pads, draw a detection zone or raise movement.</p>
       </details>
     </aside>
@@ -681,7 +683,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   const CREASE = 1.22;  // batter's popping crease is 1.22 m in front of the far stumps (nearer the camera)
   const G = 9.81, PICK_ZOOM = 3;
 
-  let PW = PROC_W, PH = 360;
+  let PW = PROC_W, PH = 360, shiftNow = { dx: 0, dy: 0 };
   let mList, mCount = 0, prev, cur, white, mask, labels, stack, vis, maskImg, stamp = 1, prevValid = false;
   let stream = null, running = false, rvfc = null;
   let tracks = [], deliveries = [], selected = null, candidates = [], nextId = 1;
@@ -695,7 +697,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   const ARM_S = 20;
   const arm = { state: 'idle', until: 0, cands: [], decideAt: 0 };
   const watching = () => !S.manual || arm.state === 'armed';
-  const rejects = []; // why recent tracks were not counted as deliveries (for tests and tuning)
+  const rejPts = [], rejects = []; // why recent tracks were not counted as deliveries (for tests and tuning)
 
   // ---------- persistence ----------
   // v3: camera at the bowler's end, looking at the batter's wicket
@@ -759,6 +761,33 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
   });
   syncSliders();
   $('showMask').addEventListener('change', e => { S.showMask = e.target.checked; });
+  // Record a short clip of the camera for tuning the tracker on real footage (saved as a video file)
+  let rec = null;
+  $('recBtn').onclick = () => {
+    if (rec) { rec.stop(); return; }
+    if (!stream || demo.mode === 'sim') { setError('Start the camera first.'); return; }
+    if (typeof MediaRecorder === 'undefined') { setError('This browser can\'t record video.'); return; }
+    const type = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+    let r;
+    try { r = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 16e6 } : undefined); } catch (e) { setError('Recording could not start.'); return; }
+    const parts = [];
+    r.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); };
+    r.onstop = () => {
+      rec = null; clearTimeout(r.timer);
+      $('recBtn').textContent = 'Record a 10 s test clip';
+      const blob = new Blob(parts, { type: r.mimeType || 'video/webm' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'cricket-test-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + (/mp4/.test(blob.type) ? '.mp4' : '.webm');
+      document.body.appendChild(a); a.click(); a.remove();
+      flash('Test clip saved (' + (blob.size / 1e6).toFixed(1) + ' MB)', 3000);
+      $('recNote').textContent = 'Saved ' + a.download + ' (' + (blob.size / 1e6).toFixed(1) + ' MB). Note the phone distance behind the stumps (' + S.behind + ' m) and the zoom when you send it.';
+    };
+    r.start(1000); rec = r;
+    $('recBtn').textContent = 'Stop recording';
+    flash('Recording 10 s: bowl a few balls now', 3000);
+    r.timer = setTimeout(() => { if (rec === r) r.stop(); }, 10000);
+  };
   $('camBtn').onclick = startCamera; $('camBtn2').onclick = startCamera;
   $('ballBtn').onclick = () => setMode(mode === 'ball' ? null : 'ball');
   $('zoneBtn').onclick = () => setMode(mode === 'zone' ? null : 'zone');
@@ -1086,6 +1115,9 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     const first = !prevValid;
     const [zx0, zy0, zx1, zy1] = zonePx();
     const wT = S.white, sT = S.sat, mT = S.motion;
+    // white = 1: white enough to be the ball; 2: only fairly bright (a white ball smeared by motion blur over a
+    // darker background looks like this), which counts only where the picture got clearly brighter
+    const lMin = Math.max(70, wT - 100), sT2 = sT + 40;
     white.fill(0); mask.fill(0);
     for (let i = 0, p = 0, n = PW * PH; i < n; i++, p += 4) {
       const r = d[p], g = d[p + 1], b = d[p + 2];
@@ -1093,6 +1125,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
       const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
       if (mx >= wT && mx - mn <= sT) white[i] = 1;
+      else if (mx >= lMin && mx - mn <= sT2) white[i] = 2;
     }
     if (first) { prevValid = true; [prev, cur] = [cur, prev]; return; }
     const t2 = performance.now();
@@ -1109,20 +1142,33 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         if ((x & 7) === 0 && (y & 7) === 0 && ox >= 0 && ox < PW && oy >= 0 && oy < PH) {
           sampled++; const e = cur[i] - prev[oy * PW + ox]; if (e > mT || e < -mT) moving++;
         }
-        if (!white[i]) continue;
+        const wi = white[i];
+        if (!wi) continue;
         let still = false;
-        for (let ny = oy - 1; ny <= oy + 1 && !still; ny++) {
-          if (ny < 0 || ny >= PH) continue;
-          for (let nx = ox - 1; nx <= ox + 1; nx++) {
-            if (nx < 0 || nx >= PW) continue;
-            const e = cur[i] - prev[ny * PW + nx];
-            if (e <= mT && e >= -mT) { still = true; break; }
+        if (wi === 1) {
+          for (let ny = oy - 1; ny <= oy + 1 && !still; ny++) {
+            if (ny < 0 || ny >= PH) continue;
+            for (let nx = ox - 1; nx <= ox + 1; nx++) {
+              if (nx < 0 || nx >= PW) continue;
+              const e = cur[i] - prev[ny * PW + nx];
+              if (e <= mT && e >= -mT) { still = true; break; }
+            }
+          }
+        } else {
+          // fairly bright: must be brighter than every nearby pixel of the last frame (something light arrived)
+          for (let ny = oy - 1; ny <= oy + 1 && !still; ny++) {
+            if (ny < 0 || ny >= PH) continue;
+            for (let nx = ox - 1; nx <= ox + 1; nx++) {
+              if (nx < 0 || nx >= PW) continue;
+              if (cur[i] - prev[ny * PW + nx] <= mT) { still = true; break; }
+            }
           }
         }
         if (!still) { mask[i] = 1; mList[mCount++] = i; }
       }
     }
     [prev, cur] = [cur, prev];
+    shiftNow = { dx, dy };
     updateAvg(prev);
     if (wk) {
       if (!ref) { if (performance.now() > refHoldUntil) captureRef(); }
@@ -1156,11 +1202,11 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       if (labels[i]) continue;
       lab++;
       let sp = 0; stack[sp++] = i; labels[i] = lab;
-      let area = 0, sx = 0, sy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
+      let area = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, x0 = PW, x1 = 0, y0 = PH, y1 = 0;
       while (sp) {
         const j = stack[--sp]; area++;
         const x = j % PW, y = (j / PW) | 0;
-        sx += x; sy += y;
+        sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
         if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
         for (let dy = -1; dy <= 1; dy++) {
           const yy = y + dy; if (yy < 0 || yy >= PH) continue;
@@ -1171,12 +1217,21 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
           }
         }
       }
-      if (area >= Math.max(1, Math.floor(S.minA / 2))) seeds.push({ i, area, cx: sx / area, cy: sy / area, bw: x1 - x0 + 1, bh: y1 - y0 + 1 });
+      if (area >= Math.max(1, Math.floor(S.minA / 2))) {
+        const m = moments(area, sx, sy, sxx, syy, sxy);
+        seeds.push({ i, area, cx: sx / area, cy: sy / area, bw: x1 - x0 + 1, bh: y1 - y0 + 1, x0, y0, x1, y1, so: area >= 12 ? area / (4 * Math.PI * Math.sqrt(m.l1 * m.l2)) : undefined });
+      }
     }
     for (let q = 0; q < mCount; q++) labels[mList[q]] = 0;
     const out = [], dMax = Math.sqrt(S.maxA * 4 / Math.PI);
     for (const s of seeds) {
-      const c = growWhite(s.i, S.maxA);
+      if (s.bw > dMax * 4 || s.bh > dMax * 4) continue; // far too big for the ball
+      const c = white[s.i] === 1 ? growWhite(s.i, S.maxA) : null;
+      // a sharp, round white ball: measured from its white pixels
+      if (c && !c.bad && !(c.el > 1.6)) { out.push(c); continue; }
+      // otherwise (blurred into a streak, or only fairly bright): measured from how much each pixel brightened
+      const m = measureStreak(s);
+      if (m) { if (c && c.bad) m.e = true; out.push(m); continue; } // touching other white: don't use its size for distance
       if (c && !c.bad) { out.push(c); continue; }
       // The ball is touching something white that isn't moving (a crease line, the stumps' white bails, a pad):
       // growing over white would swallow that too, so measure the ball from its moving pixels alone.
@@ -1186,6 +1241,40 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       }
     }
     return out;
+  }
+
+  // spread of a blob from its sums: l1 >= l2 are the variances along its long and short axes (pixels²)
+  function moments(w, sx, sy, sxx, syy, sxy) {
+    const mx = sx / w, my = sy / w;
+    const vxx = sxx / w - mx * mx + 1 / 12, vyy = syy / w - my * my + 1 / 12, vxy = sxy / w - mx * my;
+    const tr = vxx + vyy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - (vxx * vyy - vxy * vxy)));
+    return { mx, my, l1: tr / 2 + disc, l2: Math.max(0.02, tr / 2 - disc), an: 0.5 * Math.atan2(2 * vxy, vxx - vyy) };
+  }
+  // Measure a moving blob by how much brighter each pixel got than the last frame (after the camera wobble).
+  // Motion blur smears the ball along its path but not across it, so the spread across the streak still gives
+  // the ball's size: a disc of diameter d has variance d²/16 across any line, blurred or not. Pixels the ball
+  // only partly covers count partly, so even a ball 2-3 px across is measured to a fraction of a pixel.
+  function measureStreak(s) {
+    const now = prev, old = cur, { dx, dy } = shiftNow; // (prev holds this frame after the swap)
+    const X0 = Math.max(1, s.x0 - 2), X1 = Math.min(PW - 2, s.x1 + 2), Y0 = Math.max(1, s.y0 - 2), Y1 = Math.min(PH - 2, s.y1 + 2);
+    let w = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+    for (let y = Y0; y <= Y1; y++) {
+      const oy = y - dy; if (oy < 1 || oy >= PH - 1) continue;
+      for (let x = X0; x <= X1; x++) {
+        const ox = x - dx; if (ox < 1 || ox >= PW - 1) continue;
+        let mo = 0;
+        for (let ny = oy - 1; ny <= oy + 1; ny++) for (let nx = ox - 1; nx <= ox + 1; nx++) { const v = old[ny * PW + nx]; if (v > mo) mo = v; }
+        const e = now[y * PW + x] - mo - 6;
+        if (e <= 0) continue;
+        w += e; sx += e * x; sy += e * y; sxx += e * x * x; syy += e * y * y; sxy += e * x * y;
+      }
+    }
+    if (w <= 0) return null;
+    const m = moments(w, sx, sy, sxx, syy, sxy);
+    const d = 4 * Math.sqrt(Math.max(0.04, m.l2 - 1 / 12)), el = Math.sqrt(m.l1 / m.l2);
+    if (s.area >= 12 && (el > 5 || s.so < 0.55)) return null; // not a ball (or a ball merged with something else)
+    if (d * d * Math.PI / 4 > S.maxA || s.area < S.minA) return null;
+    return { x: m.mx, y: m.my, d, el: s.area >= 12 ? el : undefined, so: s.so, an: m.an, len: 4 * Math.sqrt(Math.max(0.04, m.l1 - 1 / 12)), e: s.x0 <= 1 || s.y0 <= 1 || s.x1 >= PW - 2 || s.y1 >= PH - 2 };
   }
 
   function growWhite(seed, cap) {
@@ -1205,7 +1294,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         for (let dx = -1; dx <= 1; dx++) {
           const xx = x + dx; if (xx < 0 || xx >= PW) continue;
           const k = yy * PW + xx;
-          if (white[k] && vis[k] !== stamp) { vis[k] = stamp; stack[sp++] = k; }
+          if (white[k] === 1 && vis[k] !== stamp) { vis[k] = stamp; stack[sp++] = k; }
         }
       }
     }
@@ -1217,17 +1306,18 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     // into a short streak), so = how solid (about 1 for a filled round or oval blob; low for L shapes, rings, limbs).
     // Only measured when there are enough pixels to say.
     const mx = sx / area, my = sy / area;
-    let el, so;
+    let el, so, an, len;
     if (area >= 12) {
       const vxx = sxx / area - mx * mx + 1 / 12, vyy = syy / area - my * my + 1 / 12, vxy = sxy / area - mx * my;
       const tr = vxx + vyy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - (vxx * vyy - vxy * vxy)));
       const l1 = tr / 2 + disc, l2 = Math.max(0.02, tr / 2 - disc);
       el = Math.sqrt(l1 / l2); so = area / (4 * Math.PI * Math.sqrt(l1 * l2));
+      an = 0.5 * Math.atan2(2 * vxy, vxx - vyy); len = 4 * Math.sqrt(l1);
       if (el > 3 || so < 0.6) return { bad: true }; // clearly not a ball (or a ball merged with something else)
     }
     const dEq = 2 * Math.sqrt(area / Math.PI);
     // e: touching the edge of the picture, so only part of the ball is visible and its size can't be trusted
-    return { x: mx, y: my, d: (dEq + Math.min(bw, bh)) / 2, e: x0 <= 1 || y0 <= 1 || x1 >= PW - 2 || y1 >= PH - 2, el, so };
+    return { x: mx, y: my, d: (dEq + Math.min(bw, bh)) / 2, e: x0 <= 1 || y0 <= 1 || x1 >= PW - 2 || y1 >= PH - 2, el, so, an, len };
   }
 
   // Tap on a still ball: learn its colour, measure it and show its distance
@@ -1321,14 +1411,14 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
         if (tr.pts.length < 2) { tr.vx = nvx; tr.vy = nvy; tr.spd = Math.hypot(nvx, nvy); }
         else { tr.vx = 0.5 * tr.vx + 0.5 * nvx; tr.vy = 0.5 * tr.vy + 0.5 * nvy; tr.spd = 0.5 * tr.spd + 0.5 * Math.hypot(nvx, nvy); }
 
-        tr.pts.push({ x: c.x, y: c.y, d: c.d, t, e: !!c.e, el: c.el, so: c.so });
+        tr.pts.push({ x: c.x, y: c.y, d: c.d, t, e: !!c.e, el: c.el, so: c.so, an: c.an, len: c.len });
         tr.miss = 0;
         if (looksLikeBall(tr)) grabFrame(tr, t);
       } else tr.miss++;
     }
     pruneTracks();
     for (let k = 0; k < cands.length; k++) {
-      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t, e: !!cands[k].e, el: cands[k].el, so: cands[k].so }], vx: 0, vy: 0, miss: 0 });
+      if (!used[k] && tracks.length < MAX_TRACKS) tracks.push({ pts: [{ x: cands[k].x, y: cands[k].y, d: cands[k].d, t, e: !!cands[k].e, el: cands[k].el, so: cands[k].so, an: cands[k].an, len: cands[k].len }], vx: 0, vy: 0, miss: 0 });
     }
   }
   function pruneTracks() { tracks = tracks.filter(tr => { if (tr.miss > MAX_MISS) { finalize(tr); return false; } return true; }); }
@@ -1365,10 +1455,23 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     for (let k = 0; k + q < n; k++) { all++; if (pts[k + q].d <= pts[k].d * 1.06) ok++; }
     if (ok < all * 0.8) return 'size not shrinking steadily';
     if (f * BALL / first > Dw * 0.65) return 'first seen too far away';
-    const sh = pts.filter(p => p.el != null);
-    if (sh.length >= 3 && (median(sh.map(p => p.el)) > 1.8 || median(sh.map(p => p.so)) < 0.75)) return 'not round';
+    // round: each measured sighting is round, or is a ball smeared by motion blur, which stretches it along its own
+    // path and by no more than it moved in that frame (a shirt, arm or stick doesn't do that)
+    let nSh = 0, nOk = 0;
+    for (let k = 0; k < n; k++) {
+      const p = pts[k];
+      if (p.el == null) continue;
+      nSh++;
+      if (p.so < 0.65) continue;
+      if (p.el <= 1.6) { nOk++; continue; }
+      const a = pts[Math.max(0, k - 1)], b = pts[Math.min(n - 1, k + 1)];
+      const mdx = b.x - a.x, mdy = b.y - a.y, step = Math.hypot(mdx, mdy) / Math.max(1, Math.min(n - 1, k + 1) - Math.max(0, k - 1));
+      let da = Math.abs(Math.atan2(mdy, mdx) - p.an) % Math.PI; if (da > Math.PI / 2) da = Math.PI - da;
+      if (step > 0 && da < 0.45 && p.len <= p.d + step * 1.3 + 2) nOk++;
+    }
+    if (nSh >= 3 && nOk < nSh * 0.7) return 'not round';
     const t0 = pts[0].t, fz = fitDepth(pts, f, t0);
-    if (!fz || fz.b < 5 || fz.b > 60) return 'speed not believable';
+    if (!fz || fz.b < 9 || fz.b > 60) return 'speed not believable'; // under 20 mph: a lob or throw-in, not a delivery
     let sw = 0, se = 0;
     for (const p of pts) {
       if (p.e) continue;
@@ -1379,15 +1482,43 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
     return null;
   }
 
+  // while watching for a delivery, say why something that moved wasn't taken as the ball
+  const WHY = {
+    'not getting smaller': 'it wasn\'t travelling away down the pitch',
+    'size not shrinking steadily': 'it didn\'t move like a ball going down the pitch',
+    'size doesn\'t fit a ball travelling down the pitch': 'it didn\'t move like a ball going down the pitch',
+    'first seen too far away': 'it was only picked up near the batter',
+    'not round': 'it wasn\'t round like a ball',
+    'speed not believable': 'it was far too slow or fast for a bowled ball'
+  };
+  let whyAt = 0;
+  function tellWhy(why, pts) {
+    if (!S.manual || arm.state !== 'armed' || performance.now() - whyAt < 1500) return;
+    let path = 0;
+    for (let k = 1; k < pts.length; k++) path += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+    if (path < Math.max(PW, PH) * 0.05) return;
+    whyAt = performance.now();
+    flash(why.startsWith('no decision: ') ? 'Saw a ball but couldn\'t judge it (' + why.slice(13).toLowerCase() + '). Still watching…'
+      : 'Saw something moving, but ' + (WHY[why] || why) + '. Still watching…', 2500);
+  }
+
   function finalize(tr) {
     const pts = tr.pts;
     if (pts.length < MIN_PTS || !wk || setup || !watching()) return; // nothing to judge until the wicket is set (and setup is done)
     const why = notABall(pts);
-    if (why) { if (pts.length >= 6) { rejects.push(why); if (rejects.length > 30) rejects.shift(); } return; }
+    if (why) {
+      if (pts.length >= 6) {
+        rejects.push(why); rejPts.push(pts); if (rejects.length > 30) { rejects.shift(); rejPts.shift(); }
+        tellWhy(why, pts);
+      }
+      return;
+    }
     const hand = S.hand, res = judge(pts, hand);
     if (res.offTarget) return; // heading nowhere near the stumps or the wide lines
     const c = { pts: pts.map(p => ({ ...p })), res, hand, speed: speedOf(pts), snap: tr.snap };
     if (!S.manual) { accept(c); return; }
+    // manual: something that can't be judged (lost too early, already past the stumps) doesn't use up the watch
+    if (!res.verdict) { tellWhy('no decision: ' + (res.reason || ''), pts); return; }
     // manual: wait a moment in case another track ends too, then take the most convincing one (see armTick)
     arm.cands.push(c);
     if (!arm.decideAt) arm.decideAt = performance.now() + 250;
@@ -1857,7 +1988,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
       const md = maskImg.data;
       for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
         if (mask[i]) { md[p] = 255; md[p + 1] = 63; md[p + 2] = 142; md[p + 3] = 255; }
-        else { md[p] = 53; md[p + 1] = 167; md[p + 2] = 255; md[p + 3] = white[i] ? 150 : 0; }
+        else { md[p] = 53; md[p + 1] = 167; md[p + 2] = 255; md[p + 3] = white[i] === 1 ? 150 : 0; }
       }
       mctx.putImageData(maskImg, 0, 0);
       dctx.imageSmoothingEnabled = false; dctx.drawImage(maskC, 0, 0, W, H); dctx.imageSmoothingEnabled = true;
@@ -2595,7 +2726,7 @@ min(100vw, calc(100vh * var(--ar,1.7778)))!important;max-width:min(100vw, calc(1
 
   updateSetupBtn();
   window.__demo = () => demo.last;
-  window.__wkt = () => ({ arm: arm.state, rejects, manual: S.manual, deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
+  window.__wkt = () => ({ arm: arm.state, rejects, rejPts, manual: S.manual, deliveries, tracks, PW, PH, f: focalProc(), perf, off: { x: Math.round(off.x * PW), y: Math.round(off.y * PH) }, wk: wkNow(), wides: widesNow(), wideAdj, setup, view: { ...view }, camZoom: S.camZoom });
  // for testing
   updateBoard();
   requestAnimationFrame(drawLoop);
